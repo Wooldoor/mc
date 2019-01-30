@@ -288,7 +288,7 @@ Loc *locmem(long disp, Loc *base, Loc *idx, Mode mode);
 Loc *locmeml(char *disp, Loc *base, Loc *idx, Mode mode);
 Loc *locmems(long disp, Loc *base, Loc *idx, int scale, Mode mode);
 Loc *locmemls(char *disp, Loc *base, Loc *idx, int scale, Mode mode);
-Loc *loclit(long val, Mode m);
+Loc *loclit(long long val, Mode m);
 Loc *loclitl(char *lbl);
 char *asmname(Node *dcl);
 char *tydescid(char *buf, size_t bufsz, Type *ty);

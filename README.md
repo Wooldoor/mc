@@ -93,11 +93,6 @@ Annoucements of major changes, questions, complaints. We also give relationship 
 [Subscribe Here](https://myrlang.org/list-subscribe)
 
 ## Supported Platforms
-Myrddin currently runs on a number of platforms
+Myrddin currently runs on a number of platforms on x86, this is the ARMv7 branch (coming soon (tm))
 
-- FreeBSD
 - Linux
-- NetBSD
-- OSX
-- OpenBSD
-- Plan9front

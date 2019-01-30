@@ -172,7 +172,7 @@ nextnode(Srcloc loc, size_t idx, size_t count, Dtree *accept)
 		return mkdtree(loc, genlbl(loc));
 }
 
-static size_t
+static unsigned long long
 nconstructors(Type *t)
 {
 	if (!t)

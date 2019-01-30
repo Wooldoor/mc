@@ -1307,7 +1307,8 @@ addspill(Isel *s, Loc *l)
 	if (debugopt['r']) {
 		printf("spill ");
 		dbglocprint(stdout, l, 'x');
-		printf(" to %zd(%%rbp)\n", s->stksz->lit);
+		/* used to be %zd, was cast intentional? */
+		printf(" to %ld(%%rbp)\n", s->stksz->lit);
 	}
 	htput(s->spillslots, itop(l->reg.id), itop(s->stksz->lit));
 }

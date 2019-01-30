@@ -132,8 +132,12 @@ echo "const Env : (byte[:], byte[:])[:] = $env" >> mbld/config.myr
 
 case $MACH in
     *x86_64* | *amd64*)
-	echo 'export ARCH=x64' >> config.mk
+	    echo 'export ARCH=x64' >> config.mk
         echo 'const Arch = "x64"' >> mbld/config.myr
+        ;;
+    *armv7l*)
+        echo 'export ARCH=armv7' >> config.mk
+        echo 'const Arch = "armv7"' >> mbld/config.myr
         ;;
     *)
         echo ''

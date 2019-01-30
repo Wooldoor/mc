@@ -8,6 +8,8 @@
 # common tool generated scratch files
 tags
 *~
+*.swp
+*.swo
 
 # generated files
 config.h
@@ -29,3 +31,6 @@ support/mdumpleak
 myrbuild/myrbuild
 lib/regex/redump
 xmbld
+
+# dummy file to test
+dummy.myr

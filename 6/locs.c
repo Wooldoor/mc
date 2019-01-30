@@ -161,8 +161,10 @@ locmemls(char *disp, Loc *base, Loc *idx, int scale, Mode mode)
 }
 
 
+/* val needs to be a long long on 32-bit due to usage as loclit(1LL << 63) 
+ * in isel */
 Loc *
-loclit(long val, Mode m)
+loclit(long long val, Mode m)
 {
 	Loc *l;
 
