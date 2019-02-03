@@ -50,7 +50,7 @@ printmem(FILE *fd, Loc *l, char spec)
 	} else if (l->mem.lbldisp) {
 		fprintf(fd, "%s", l->mem.lbldisp);
 	}
-	if (!l->mem.base || l->mem.base->reg.colour == Rrip) {
+	if (!l->mem.base || l->mem.base->reg.colour == Rr15) {
 		fprintf(fd, "+0(SB)");
 	} else {
 		fprintf(fd, "(");

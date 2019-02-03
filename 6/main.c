@@ -25,6 +25,7 @@ Node *file;
 char debugopt[128];
 int writeasm;
 int extracheck = 1;
+int assembling = 1;
 int p9asm;
 char *outfile;
 char *objdir;
@@ -47,6 +48,7 @@ usage(char *prog)
 	printf("\t-d\tPrint debug dumps. Recognized options: f r p i\n");
 	printf("\t-G\tGenerate asm in gas syntax\n");
 	printf("\t-9\tGenerate asm in plan 9 syntax\n");
+	printf("\t-n\tDon't call the assembler, stop at code generation\n");
 	printf("\t-d opts: additional debug logging. Options are listed below:\n");
 	printf("\t\tf: log folded trees\n");
 	printf("\t\tl: log lowered pre-cfg trees\n");
@@ -215,7 +217,7 @@ main(int argc, char **argv)
 
 	outfile = NULL;
 
-	optinit(&ctx, "cd:?hSo:I:9G:O:T", argv, argc);
+	optinit(&ctx, "cd:?hSo:I:9G:O:Tn", argv, argc);
 	asmsyntax = Defaultasm;
 	sizefn = size;
 	while (!optdone(&ctx)) {
@@ -257,6 +259,9 @@ main(int argc, char **argv)
 			break;
 		case 'T':
 			allowhidden++;
+			break;
+		case 'n':
+			assembling = 0;
 			break;
 		default:
 			usage(argv[0]);
@@ -311,7 +316,9 @@ main(int argc, char **argv)
 		}
 		genuse(ctx.args[i]);
 		gen(file, buf);
-		assemble(buf, ctx.args[i]);
+		if (assembling) {
+			assemble(buf, ctx.args[i]);
+		}
 
 		free(localincpath);
 	}
