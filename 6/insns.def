@@ -22,8 +22,12 @@
 
   Because 0 indictates the sentiel value, the indexing on use
   and def statments is 1-based.
+  
+  Right now, I'm going to make all instructions work like in x86 in the sense
+  that where ARM supports 3 arguments (dst, src1, src2), x86 has 2 (src, dst).
+  ARM instructions written as (src1, src1, src2).
+'*/
 
-*/
 #define None .l={0},.r={0}
 Insn(Inone,
     "BAD_INSN",
@@ -31,352 +35,6 @@ Insn(Inone,
     Use(None),
     Def(None))
 /* Note, the mov instruction is specified in an overly general manner. */
-Insn(Imov,
-    "\tmov%t %x,%x\n",
-    "\tMOV%T %X,%X\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Imovt,
-    "PSEUDO: TRUNCATE\n",
-    "PSEUDO: TRUNCATE\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Imovzx,
-    "\tmovz%1t%2t %x,%x\n",
-    "\tMOV%1T%2TZX %X,%X\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Imovsx,
-    "\tmovs%1t%2t %x,%x\n",
-    "\tMOV%1T%2TSX %X,%X\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Ilea,
-    "\tlea%2t %m,%r\n",
-    "\tLEA%2T %M,%R\n",
-    Use(.l={1}),
-    Def(.l={2}))
-
-Insn(Iadd,
-    "\tadd%t %x,%r\n",
-    "\tADD%T %X,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Isub,
-    "\tsub%t %x,%r\n",
-    "\tSUB%T %X,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Iimul,
-    "\timul%t %x,%r\n",
-    "\tIMUL%T %X,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-/* there is no imul for 8 bit values. */
-Insn(Iimul_r,
-    "\timul%t %r\n",
-    "\tIMUL%T %R\n",
-    Use(.l={1},.r={Ral}),
-    Def(.r={Rax}))
-Insn(Imul,
-    "\tmul%t %r\n",
-    "\tMUL%T %R\n",
-    Use(.l={1},.r={Reax}),
-    Def(.r={Reax,Redx}))
-Insn(Idiv,
-    "\tdiv%t %r\n",
-    "\tDIV%T %R\n",
-    Use(.l={1},.r={Reax,Redx}),
-    Def(.r={Reax,Redx}))
-Insn(Iidiv,
-    "\tidiv%t %r\n",
-    "\tIDIV%T %R\n",
-    Use(.l={1},.r={Reax,Redx}),
-    Def(.r={Reax,Redx}))
-Insn(Icwd,
-    "\tcwd\n",
-    "\tCWD\n",
-    Use(.r={Reax}),
-    Def(.r={Reax,Redx}))
-Insn(Icdq,
-    "\tcdq\n",
-    "\tCDQ\n",
-    Use(.r={Reax}),
-    Def(.r={Reax,Redx}))
-Insn(Icqo,
-    "\tcqo\n",
-    "\tCQO\n",
-    Use(.r={Reax}),
-    Def(.r={Reax,Redx}))
-Insn(Ineg,
-    "\tneg%t %r\n",
-    "\tNEG%T %R\n",
-    Use(.l={1}),
-    Def(.l={1}))
-Insn(Iand,
-    "\tand%t %x,%r\n",
-    "\tAND%T %X,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Ior,
-    "\tor%t  %x,%r\n",
-    "\tOR%T  %X,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Ixor,
-    "\txor%t %x,%r\n",
-    "\tXOR%T %X,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Inot,
-    "\tnot%t %v\n",
-    "\tNOT%T %V\n",
-    Use(.l={1}),
-    Def(.l={1}))
-Insn(Ishl,
-    "\tsal%2t %u,%r\n",
-    "\tSAL%2T %U,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Isar,
-    "\tsar%2t %u,%r\n",
-    "\tSAR%2T %U,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Ishr,
-    "\tshr%2t %u,%r\n",
-    "\tSHR%2T %U,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Irol,
-    "\trol%2t %u,%r\n",
-    "\tROL%2T %U,%R\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-
-Insn(Itest,
-    "\ttest%t %x,%r\n",
-    "\tTEST%T %X,%R\n",
-    Use(.l={1,2}),
-    Def(None))
-Insn(Icmp,
-    "\tcmp%t  %x,%r\n",
-    "\tCMP%T  %2R,%1X\n",
-    Use(.l={1,2}),
-    Def(None))
-
-Insn(Ipush,
-    "\tpush%t %r\n",
-    "\tPUSH%T %R\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ipop,
-    "\tpop%t %r\n",
-    "\tPOP%T %R\n",
-    Use(.l={1}),
-    Def(None))
-
-/* branch instructions */
-Insn(Isetz,
-    "\tsetz  %v\n",
-    "\tSETEQ  %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetnz,
-    "\tsetnz %v\n",
-    "\tSETNE %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetl,
-    "\tsetl  %v\n",
-    "\tSETLT  %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetle,
-    "\tsetle %v\n",
-    "\tSETLE %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetg,
-    "\tsetg %v\n",
-    "\tSETGT %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetge,
-    "\tsetge %v\n",
-    "\tSETGE %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetb,
-    "\tsetb  %v\n",
-    "\tSETCS  %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetbe,
-    "\tsetbe %v\n",
-    "\tSETLS %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Iseta,
-    "\tseta %v\n",
-    "\tSETCC %V\n",
-    Use(None),
-    Def(.l={1}))
-Insn(Isetae,
-    "\tsetae %v\n",
-    "\tSETHI %V\n",
-    Use(None),
-    Def(.l={1}))
-
-/* fp specific instructions */
-Insn(Imovs,
-    "\tmovs%1t %x,%x\n",
-    "\tMOVS%1T %X,%X\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Icvttsd2si,
-    "\tcvttsd2si%2t %x,%r\n",
-    "\tCVTTS%T2S%2T %X,%R\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Icvttsi2sd,
-    "\tcvtsi2s%2t %x,%f\n",
-    "\tCVTS%T2S%2T %X,%F\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Icvttsd2ss,
-    "\tcvtsd2ss %x,%f\n",
-    "\tCVTSD2SS %X,%F\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Icvttss2sd,
-    "\tcvtss2sd %x,%f\n",
-    "\tCVTSS2SD %X,%F\n",
-    Use(.l={1}),
-    Def(.l={2}))
-Insn(Iadds,
-    "\tadds%t %x,%f\n",
-    "\tADDS%T %X,%F\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Isubs,
-    "\tsubs%t %x,%f\n",
-    "\tSUBS%T %X,%F\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Imuls,
-    "\tmuls%t %x,%f\n",
-    "\tMULS%T %X,%F\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Idivs,
-    "\tdivs%t %x,%f\n",
-    "\tDIVS%T %X,%F\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-Insn(Icomis,
-    "\tcomis%t %x,%f\n",
-    "\tCOMIS%T %X,%F\n",
-    Use(.l={1,2}),
-    Def(None))
-Insn(Ixorp,
-    "\tmuls%t %x,%f\n",
-    "\tMULS%T %X,%F\n",
-    Use(.l={1,2}),
-    Def(.l={2}))
-
-/* branch instructions */
-Insn(Icall,
-    "\tcall %v\n",
-    "\tCALL %V\n",
-    Use(.l={1}, .r={
-            Rrdi, Rrsi, Rrdx, Rrcx, Rr8, Rr9,
-            Rxmm0d, Rxmm1d, Rxmm2d, Rxmm3d,
-            Rxmm4d, Rxmm5d, Rxmm6d, Rxmm7d,
-    }),
-    Def(.r={Rrax, Rrbx, Rrcx, Rrdx, Rrsi,
-            Rrdi, Rr8,Rr9,Rr10,Rr11,
-            Rxmm0d, Rxmm1d, Rxmm2d, Rxmm3d,
-            Rxmm4d, Rxmm5d, Rxmm6d, Rxmm7d,
-            Rxmm8d, Rxmm9d, Rxmm10d, Rxmm11d,
-            Rxmm12d, Rxmm13d, Rxmm14d, Rxmm15d,
-        }))
-Insn(Icallind,
-    "\tcall *%v\n",
-    "\tCALL *%V\n",
-    Use(.l={1}, .r={
-            /* ABI note: Rrax holds the env */
-            Rrax, Rrdi, Rrsi, Rrdx, Rrcx, Rr8, Rr9,
-            Rxmm0d, Rxmm1d, Rxmm2d, Rxmm3d,
-            Rxmm4d, Rxmm5d, Rxmm6d, Rxmm7d,
-    }),
-    Def(.r={Rrax, Rrbx, Rrcx, Rrdx, Rrsi,
-            Rrdi, Rr8,Rr9,Rr10,Rr11,
-            Rxmm0d, Rxmm1d, Rxmm2d, Rxmm3d,
-            Rxmm4d, Rxmm5d, Rxmm6d, Rxmm7d,
-            Rxmm8d, Rxmm9d, Rxmm10d, Rxmm11d,
-            Rxmm12d, Rxmm13d, Rxmm14d, Rxmm15d,
-        }))
-Insn(Ijmp,
-    "\tjmp %v\n",
-    "\tJMP %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijz,
-    "\tjz %v\n",
-    "\tJEQ %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijnz,
-    "\tjnz %v\n",
-    "\tJNE %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijl,
-    "\tjl %v\n",
-    "\tJLT %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijle,
-    "\tjle %v\n",
-    "\tJLE %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijg,
-    "\tjg %v\n",
-    "\tJGT %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijge,
-    "\tjge %v\n",
-    "\tJGE %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijb,
-    "\tjb %v\n",
-    "\tJCS %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijbe,
-    "\tjbe %v\n",
-    "\tJLS %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ija,
-    "\tja %v\n",
-    "\tJA %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Ijae,
-    "\tjae %v\n",
-    "\tJAE %V\n",
-    Use(.l={1}),
-    Def(None))
-Insn(Iret,
-    "\tret\n",
-    "\tRET\n",
-    Use(.r={Rrax,Rxmm0d}),
-    Def(None))
 
 /* not actually insns */
 Insn(Ilbl,
@@ -402,3 +60,262 @@ Insn(Icomment,
     "\t//%V:\n",
     Use(None),
     Def(None))
+
+/* Moving memory around */
+Insn(Ildr,
+    "\tldr %r,%x\n",
+    "",
+    Use(.l={1}),
+    Def(.l={2}))
+
+Insn(Istr,
+    "\tstr %r,%x\n",
+    "",
+    Use(.l={1}),
+    Def(.l={2}))
+
+Insn(Ipush,
+    "\tpush %r\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+Insn(Ipop,
+    "\tpop %r\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+Insn(Imovt,
+    "\tmovt %r, %i\n",
+    "",
+    Use(.l={1}),
+    Def(.l={1}))
+
+Insn(Icpy,
+    "\tcpy %r, %r\n",
+    "",
+    Use(.l={1, 2}),
+    Def(.l={1}))
+
+Insn(Imov32,
+    "\tmov32 %r, %x\n",
+    "",
+    Use(.l={1}),
+    Def(.l={1}))
+
+/* Arithmetic */
+Insn(Iadd,
+    "\tadd %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Isub,
+    "\tsub %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Irsb,
+    "\trsb %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Iadc,
+    "\tadc %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Isbc,
+    "\tsbc %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Irsc,
+    "\trsc %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Ineg,
+    "\tneg %r, %r\n",
+    "",
+    Use(.l={1, 2}),
+    Def(.l={1}))
+
+/* Bitwise */
+
+Insn(Iclz,
+    "\tclz %r, %r\n",
+    "",
+    Use(.l={1, 2}),
+    Def(.l={1}))
+
+Insn(Iand,
+    "\tand %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Ior,
+    "\torr %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Ieor,
+    "\teor %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Ibic,
+    "\tand %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Iasr,
+    "\tasr, %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Ilsl,
+    "\tlsl, %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Ilsr,
+    "\tlsr, %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Iror,
+    "\tror, %r, %r, %u\n",
+    "",
+    Use(.l={1, 2, 3}),
+    Def(.l={1}))
+
+Insn(Irrx,
+    "\tasr, %r, %r\n",
+    "",
+    Use(.l={1, 2}),
+    Def(.l={1}))
+
+
+/* Comparison and branching */
+/* TODO: Implement condition codes so can have just 1 B and BL instruction */
+Insn(Icmp,
+    "\tcmp %r, %u\n",
+    "",
+    Use(.l={1, 2}),
+    Def(None))
+
+Insn(Icmn,
+    "\tcmn %r, %u\n",
+    "",
+    Use(.l={1, 2}),
+    Def(None))
+
+Insn(Itst,
+    "\ttst %r, %u\n",
+    "",
+    Use(.l={1, 2}),
+    Def(None))
+
+Insn(Iteq,
+    "\tteq %r, %u\n",
+    "",
+    Use(.l={1, 2}),
+    Def(None))
+ 
+ Insn(Ib,
+    "\tb %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ibeq,
+    "\tbeq %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ibne,
+    "\tbne %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ibgt,
+    "\tbgt %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ibge,
+    "\tbge %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Iblt,
+    "\tb %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ible,
+    "\tble %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ibhi,
+    "\tbhi %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Iblo,
+    "\tblo %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ibhs,
+    "\tbhs %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+ Insn(Ibls,
+    "\tbls %v\n",
+    "",
+    Use(.l={1}),
+    Def(None))
+
+Insn(Ibl,
+    "\tbl %v\n",
+    "",
+    Use(.l={1}),
+    Def(.r={Rr14}))
+
+/* CPSR Manipulation */
+Insn(Imrs,
+	"\tmrs %r, APSR\n",
+	"",
+	Use(.l={1}),
+	Def(.l={1}))
+Insn(Imsr,
+	"\tmsr %u, APSR\n",
+	"",
+	Use(.l={1}),
+	Def(.l={1}))

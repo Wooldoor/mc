@@ -105,12 +105,6 @@ locprint(FILE *fd, Loc *l, char spec)
 	}
 }
 
-static int
-issubreg(Loc *a, Loc *b)
-{
-	return rclass(a) == rclass(b) && a->mode != b->mode;
-}
-
 static void
 iprintf(FILE *fd, Insn *insn)
 {
@@ -122,39 +116,6 @@ iprintf(FILE *fd, Insn *insn)
 	 * means that we need to do a movl when we really want a movzlq. Since
 	 * we don't know the name of the reg to use, we need to sub it in when
 	 * writing... */
-	switch (insn->op) {
-	case Imovzx:
-		if (insn->args[0]->mode == ModeL && insn->args[1]->mode == ModeQ) {
-			if (insn->args[1]->reg.colour) {
-				insn->op = Imov;
-				insn->args[1] = coreg(insn->args[1]->reg.colour, ModeL);
-			}
-		}
-		break;
-	case Imovs:
-		if (insn->args[0]->reg.colour == Rnone || insn->args[1]->reg.colour == Rnone)
-			break;
-		/* moving a reg to itself is dumb. */
-		if (insn->args[0]->reg.colour == insn->args[1]->reg.colour)
-			return;
-		break;
-	case Imov:
-		assert(!isfloatmode(insn->args[0]->mode));
-		if (insn->args[0]->type != Locreg || insn->args[1]->type != Locreg)
-			break;
-		if (insn->args[0]->reg.colour == Rnone || insn->args[1]->reg.colour == Rnone)
-			break;
-		/* if one reg is a subreg of another, we can just use the right
-		 * mode to move between them. */
-		if (issubreg(insn->args[0], insn->args[1]))
-			insn->args[0] = coreg(insn->args[0]->reg.colour, insn->args[1]->mode);
-		/* moving a reg to itself is dumb. */
-		if (insn->args[0]->reg.colour == insn->args[1]->reg.colour)
-			return;
-		break;
-	default:
-		break;
-	}
 	p = insnfmt[insn->op];
 	i = 0; /* NB: this is 1 based indexing */
 	for (; *p; p++) {

@@ -20,43 +20,57 @@
 /* forward decls */
 Loc *selexpr(Isel *s, Node *n);
 
-#define Nfloatregargs 8
-#define Nintregargs 6
+#define Nfloatregargs 16
+#define Nintregargs 4
 regid floatargregs[] = {
-	Rxmm0d, Rxmm1d, Rxmm2d, Rxmm3d,
-	Rxmm4d, Rxmm5d, Rxmm6d, Rxmm7d,
+	Rs0, Rs1, Rs2, Rs3,
+	Rs4, Rs5, Rs6, Rs7,
+	Rs8, Rs9, Rs10, Rs11,
+	Rs12, Rs13, Rs14, Rs15
 };
-regid intargregs[] = {Rrdi, Rrsi, Rrdx, Rrcx, Rr8, Rr9};
+
+regid intargregs[] = {Rr0, Rr1, Rr2, Rr3};
+
+/* %rax is for int returns, %xmm0d is for floating returns */
+Reg
+savedregs[] = {
+	Rr4, Rr5, Rr6, Rr7,
+	Rr8, Rr9, Rr10, Rr11,
+	Rr14,
+	Rnone
+};
 
 /* used to decide which operator is appropriate
  * for implementing various conditional operators */
+/* ARMv7 has status codes in CPSR, use Imrs to 
+ * fetch and Imsr to store */
 struct {
 	AsmOp test;
 	AsmOp jmp;
 	AsmOp getflag;
 } reloptab[Numops] = {
-	[Olnot] = {Itest, Ijz, Isetz}, /* lnot invalid for floats */
+	[Olnot] = {Itst, Ibeq, Inone}, /* lnot invalid for floats */
 	/* signed int */
-	[Oeq] = {Icmp, Ijz,  Isetz},
-	[One] = {Icmp, Ijnz, Isetnz},
-	[Ogt] = {Icmp, Ijg,  Isetg},
-	[Oge] = {Icmp, Ijge, Isetge},
-	[Olt] = {Icmp, Ijl,  Isetl},
-	[Ole] = {Icmp, Ijle, Isetle},
+	[Oeq] = {Icmp, Ibeq,  Inone},
+	[One] = {Icmp, Ibne, Inone},
+	[Ogt] = {Icmp, Ibgt,  Inone},
+	[Oge] = {Icmp, Ibge, Inone},
+	[Olt] = {Icmp, Iblt,  Inone},
+	[Ole] = {Icmp, Ible, Inone},
 	/* unsigned int */
-	[Oueq] = {Icmp, Ijz,  Isetz},
-	[Oune] = {Icmp, Ijnz, Isetnz},
-	[Ougt] = {Icmp, Ija,  Iseta},
-	[Ouge] = {Icmp, Ijae, Isetae},
-	[Oult] = {Icmp, Ijb,  Isetb},
-	[Oule] = {Icmp, Ijbe, Isetbe},
+	[Oueq] = {Icmp, Ibeq, Inone},
+	[Oune] = {Icmp, Ibne, Inone},
+	[Ougt] = {Icmp, Ibhi, Inone},
+	[Ouge] = {Icmp, Ibhs, Inone},
+	[Oult] = {Icmp, Iblo, Inone},
+	[Oule] = {Icmp, Ibls, Inone},
 	/* float */
-	[Ofeq] = {Icomis, Ijz,  Isetz},
-	[Ofne] = {Icomis, Ijnz, Isetnz},
-	[Ofgt] = {Icomis, Ija,  Iseta},
-	[Ofge] = {Icomis, Ijae, Isetae},
-	[Oflt] = {Icomis, Ijb,  Isetb},
-	[Ofle] = {Icomis, Ijbe, Isetbe},
+	[Ofeq] = {Icmp, Ibeq, Inone},
+	[Ofne] = {Icmp, Ibne, Inone},
+	[Ofgt] = {Icmp, Ibhi, Inone},
+	[Ofge] = {Icmp, Ibhs, Inone},
+	[Oflt] = {Icmp, Iblo, Inone},
+	[Ofle] = {Icmp, Ibls, Inone},
 };
 
 static Mode
@@ -99,19 +113,19 @@ static Loc *
 varloc(Isel *s, Node *n)
 {
 	ssize_t off;
-	Loc *l, *rip;
+	Loc *l, *pc;
 
 	/* we need to try getting it from the stack first, in case we
 	 * forced it to stack for addressing */
 	if (hthas(s->globls, n)) {
-		rip = locphysreg(Rrip);
-		l = locmeml(htget(s->globls, n), rip, NULL, mode(n));
+		pc = locphysreg(Rr15);
+		l = locmeml(htget(s->globls, n), pc, NULL, mode(n));
 	} else if (hthas(s->envoff, n)) {
 		off = ptoi(htget(s->envoff, n));
 		l = locmem(off, s->envp, NULL, mode(n));
 	} else if (hthas(s->stkoff, n)) {
 		off = ptoi(htget(s->stkoff, n));
-		l = locmem(-off, locphysreg(Rrbp), NULL, mode(n));
+		l = locmem(-off, locphysreg(Rr11), NULL, mode(n));
 	} else if (stacknode(n)) {
 		assert(0);
 	} else {
@@ -208,28 +222,15 @@ g(Isel *s, int op, ...)
 }
 
 static void
-movz(Isel *s, Loc *src, Loc *dst)
-{
-	if (src->mode == dst->mode)
-		g(s, Imov, src, dst, NULL);
-	else
-		g(s, Imovzx, src, dst, NULL);
-}
-
-static void
 load(Isel *s, Loc *a, Loc *b)
 {
-	Loc *l;
 
 	assert(b->type == Locreg);
-	if (a->type == Locreg)
-		l = locmem(0, b, NULL, a->mode);
-	else
-		l = a;
+	/* Guaranteed by caller that a is a Locreg */
 	if (isfloatmode(b->mode))
-		g(s, Imovs, l, b, NULL);
+		g(s, Ildr, a, b, NULL);
 	else
-		g(s, Imov, l, b, NULL);
+		g(s, Ildr, a, b, NULL);
 }
 
 static void
@@ -243,9 +244,9 @@ stor(Isel *s, Loc *a, Loc *b)
 	else
 		l = b;
 	if (isfloatmode(b->mode))
-		g(s, Imovs, a, l, NULL);
+		g(s, Istr, a, l, NULL);
 	else
-		g(s, Imov, a, l, NULL);
+		g(s, Istr, a, l, NULL);
 }
 
 /* ensures that a location is within a reg */
@@ -257,9 +258,9 @@ newr(Isel *s, Loc *a)
 	r = locreg(a->mode);
 	if (a->type == Locreg) {
 		if (isfloatmode(a->mode))
-			g(s, Imovs, a, r, NULL);
+			g(s, Icpy, a, r, NULL);
 		else
-			g(s, Imov, a, r, NULL);
+			g(s, Icpy, a, r, NULL);
 	} else {
 		load(s, a, r);
 	}
@@ -312,8 +313,8 @@ selcjmp(Isel *s, Node *n, Node **args)
 			b = a;
 		a = newr(s, a);
 	} else {
-		cond = Itest;
-		jmp = Ijnz;
+		cond = Itst;
+		jmp = Ibne;
 		b = newr(s, selexpr(s, args[0])); /* cond */
 		a = b;
 	}
@@ -324,7 +325,7 @@ selcjmp(Isel *s, Node *n, Node **args)
 
 	g(s, cond, b, a, NULL);
 	g(s, jmp, l1, NULL);
-	g(s, Ijmp, l2, NULL);
+	g(s, Ib, l2, NULL);
 }
 
 /* Generate variable length jump. There are 3 case
@@ -470,7 +471,7 @@ clear(Isel *s, Loc *val, size_t sz, size_t align)
 		align = 8;
 	for (modesz = align; szmodes[modesz] != ModeNone; modesz /= 2) {
 		zero = locreg(szmodes[modesz]);
-		g(s, Ixor, zero, zero, NULL);
+		g(s, Ieor, zero, zero, NULL);
 		while (i + modesz <= sz) {
 			dst = locmem(i, dp, NULL, szmodes[modesz]);
 			g(s, Imov, zero, dst, NULL);
@@ -487,15 +488,15 @@ call(Isel *s, Node *n)
 	Loc *f, *e;
 
 	if (exprop(n) == Ocall) {
-		op = Icall;
+		op = Ibl;
 		fn = n->expr.args[0];
 		assert(tybase(exprtype(fn))->type == Tycode);
 		f = locmeml(htget(s->globls, fn), NULL, NULL, mode(fn));
 	} else {
-		op = Icallind;
+		op = Ibl;
 		f = selexpr(s, n->expr.args[0]);
 		e = selexpr(s, n->expr.args[1]);
-		g(s, Imov, e, locphysreg(Rrax), NULL);
+		g(s, Icpy, e, locphysreg(Rr0), NULL);
 	}
 	g(s, op, f, NULL);
 }
@@ -522,23 +523,23 @@ gencall(Isel *s, Node *n)
 	Loc *src, *dst, *arg;	/* values we reduced */
 	size_t argsz, argoff, nargs, vasplit;
 	size_t nfloats, nints;
-	Loc *retloc, *rsp, *ret;	/* hard-coded registers */
+	Loc *retloc, *sp, *ret;	/* hard-coded registers */
 	Loc *stkbump;	/* calculated stack offset */
 	Type *t, *fn;
 	Node **args;
 	size_t i, a;
 	int vararg;
 
-	rsp = locphysreg(Rrsp);
+	sp = locphysreg(Rr13);
 	t = exprtype(n);
 	if (tybase(t)->type == Tyvoid || isstacktype(t)) {
 		retloc = NULL;
 		ret = NULL;
 	} else if (istyfloat(t)) {
-		retloc = coreg(Rxmm0d, mode(n));
+		retloc = coreg(Rs0, mode(n));
 		ret = locreg(mode(n));
 	} else {
-		retloc = coreg(Rrax, mode(n));
+		retloc = coreg(Rr0, mode(n));
 		ret = locreg(mode(n));
 	}
 	fn = tybase(exprtype(n->expr.args[0]));
@@ -566,7 +567,7 @@ gencall(Isel *s, Node *n)
 	argsz = align(argsz, 16);
 	stkbump = loclit(argsz, ModeQ);
 	if (argsz)
-		g(s, Isub, stkbump, rsp, NULL);
+		g(s, Isub, stkbump, sp, NULL);
 
 	/* Now, we can evaluate the arguments */
 	argoff = 0;
@@ -582,7 +583,7 @@ gencall(Isel *s, Node *n)
 			src = locreg(ModeQ);
 			g(s, Ilea, arg, src, NULL);
 			a = tyalign(exprtype(args[i]));
-			blit(s, rsp, src, argoff, 0, size(args[i]), a);
+			blit(s, sp, src, argoff, 0, size(args[i]), a);
 			argoff += size(args[i]);
 		} else if (!vararg && isfloatmode(arg->mode) && nfloats < Nfloatregargs) {
 			dst = coreg(floatargregs[nfloats], arg->mode);
@@ -595,7 +596,7 @@ gencall(Isel *s, Node *n)
 			g(s, Imov, arg, dst, NULL);
 			nints++;
 		} else {
-			dst = locmem(argoff, rsp, NULL, arg->mode);
+			dst = locmem(argoff, sp, NULL, arg->mode);
 			arg = inri(s, arg);
 			stor(s, arg, dst);
 			argoff += size(args[i]);
@@ -603,7 +604,7 @@ gencall(Isel *s, Node *n)
 	}
 	call(s, n);
 	if (argsz)
-		g(s, Iadd, stkbump, rsp, NULL);
+		g(s, Iadd, stkbump, sp, NULL);
 	if (retloc) {
 		if (isfloatmode(retloc->mode))
 			g(s, Imovs, retloc, ret, NULL);
@@ -655,10 +656,11 @@ rolop(Isel *s, Node *n, Node *l, Node *r)
 	if (lv + rv != 8*size(n))
 		return NULL;
 
+	/* TODO: Check that LSL is equivalent to ROL here */
 	if (exprop(l) == Obsl)
-		return binop(s, Irol, l->expr.args[0], l->expr.args[1]);
+		return binop(s, Ilsl, l->expr.args[0], l->expr.args[1]);
 	else
-		return binop(s, Irol, r->expr.args[0], r->expr.args[1]);
+		return binop(s, Ilsl, r->expr.args[0], r->expr.args[1]);
 }
 
 Loc *
@@ -678,7 +680,7 @@ selexpr(Isel *s, Node *n)
 	case Oadd:	r = binop(s, Iadd, args[0], args[1]);	break;
 	case Osub:	r = binop(s, Isub, args[0], args[1]);	break;
 	case Oband:	r = binop(s, Iand, args[0], args[1]);	break;
-	case Obxor:	r = binop(s, Ixor, args[0], args[1]);	break;
+	case Obxor:	r = binop(s, Ieor, args[0], args[1]);	break;
 	case Obor:
 		r = rolop(s, n, args[0], args[1]);
 		if (!r)
@@ -970,12 +972,6 @@ isel(Isel *s, Node *n)
 	}
 }
 
-/* %rax is for int returns, %xmm0d is for floating returns */
-Reg
-savedregs[] = {
-	Rr12, Rr13, Rr14, Rr15,
-	Rnone
-};
 
 void
 addarglocs(Isel *s, Func *fn)
@@ -1022,20 +1018,14 @@ addarglocs(Isel *s, Func *fn)
 static void
 prologue(Isel *s, Func *fn, size_t sz)
 {
-	Loc *rsp;
-	Loc *rbp;
+	Loc *lr;
 	Loc *stksz;
 	Loc *phys;
 	size_t i;
 
-	rsp = locphysreg(Rrsp);
-	rbp = locphysreg(Rrbp);
-	stksz = loclit(sz, ModeQ);
-	/* enter function */
-	g(s, Ipush, rbp, NULL);
-	g(s, Imov, rsp, rbp, NULL);
-	g(s, Isub, stksz, rsp, NULL);
+	lr = locphysreg(Rr14);
 	/* save registers */
+	/* TODO: Replace with single STM */
 	for (i = 0; savedregs[i] != Rnone; i++) {
 		phys = locphysreg(savedregs[i]);
 		s->calleesave[i] = locreg(phys->mode);
@@ -1045,28 +1035,29 @@ prologue(Isel *s, Func *fn, size_t sz)
 			g(s, Imov, phys, s->calleesave[i], NULL);
 		}
 	}
+	/* Save LR for popping to PC in epilogue */
+	g(s, Ipush, lr, NULL);
+	/*
 	if (s->envp)
 		g(s, Imov, locphysreg(Rrax), s->envp, NULL);
+	*/
 	addarglocs(s, fn);
 	s->nsaved = i;
-	s->stksz = stksz; /* need to update if we spill */
 }
 
 static void
 epilogue(Isel *s)
 {
-	Loc *rsp, *rbp;
 	Loc *ret;
+	Loc *pc = locphysreg(Rr15);
 	size_t i;
 
-	rsp = locphysreg(Rrsp);
-	rbp = locphysreg(Rrbp);
 	if (s->ret) {
 		ret = loc(s, s->ret);
 		if (istyfloat(exprtype(s->ret)))
-			g(s, Imovs, ret, coreg(Rxmm0d, ret->mode), NULL);
+			g(s, Imovs, ret, coreg(Rs0, ret->mode), NULL);
 		else
-			g(s, Imov, ret, coreg(Rax, ret->mode), NULL);
+			g(s, Imov, ret, coreg(Rr0, ret->mode), NULL);
 	}
 	/* restore registers */
 	for (i = 0; savedregs[i] != Rnone; i++) {
@@ -1077,9 +1068,7 @@ epilogue(Isel *s)
 		}
 	}
 	/* leave function */
-	g(s, Imov, rbp, rsp, NULL);
-	g(s, Ipop, rbp, NULL);
-	g(s, Iret, NULL);
+	g(s, Ipop, pc, NULL);
 }
 
 static Asmbb *
