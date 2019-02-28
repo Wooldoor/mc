@@ -21,7 +21,7 @@
 #include "../config.h"
 
 /* FIXME: move into one place...? */
-Node *file;
+File file;
 char debugopt[128];
 int writeasm;
 int extracheck = 1;
@@ -163,12 +163,12 @@ gentempfile(char *buf, size_t bufsz, char *path, char *suffix)
 }
 
 static int
-hasmain(Node *file)
+hasmain(void)
 {
 	Node *n, *name;
 
 	name = mknsname(Zloc, NULL, "main");
-	n = getdcl(file->file.globls, name);
+	n = getdcl(file.globls, name);
 	if (!n)
 		return 0;
 	n = n->decl.name;
@@ -203,7 +203,7 @@ genuse(char *path)
 		fprintf(stderr, "could not open path %s\n", buf);
 		exit(1);
 	}
-	writeuse(f, file);
+	writeuse(f);
 	fclose(f);
 }
 
@@ -290,21 +290,26 @@ main(int argc, char **argv)
 		globls = mkstab(0);
 		tyinit(globls);
 		tokinit(ctx.args[i]);
-		file = mkfile(ctx.args[i]);
-		file->file.globls = globls;
+		file.ns = mkht(strhash, streq);
+		file.globls = globls;
+		lappend(&file.files, &file.nfiles, ctx.args[i]);
 		yyparse();
 
 		/* before we do anything to the parse */
 		if (debugopt['T'])
-			dump(file, stdout);
+			dump(stdout);
 		loaduses();
-		if (hasmain(file))
-			geninit();
+		if (hasmain()) {
+			genautocall(file.init, file.ninit,
+			    file.localinit, "__init__");
+			genautocall(file.fini, file.nfini,
+			    file.localfini, "__fini__");
+		}
 		infer();
 		tagexports(0);
 		/* after all type inference */
 		if (debugopt['t'])
-			dump(file, stdout);
+			dump(stdout);
 
 		if (writeasm) {
 			if (outfile != NULL)
@@ -315,11 +320,10 @@ main(int argc, char **argv)
 			gentempfile(buf, sizeof buf, ctx.args[i], ".s");
 		}
 		genuse(ctx.args[i]);
-		gen(file, buf);
+		gen(buf);
 		if (assembling) {
 			assemble(buf, ctx.args[i]);
 		}
-
 		free(localincpath);
 	}
 

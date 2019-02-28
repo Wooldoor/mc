@@ -254,7 +254,6 @@ fixup(Node *n)
 	if (!n)
 		return;
 	switch (n->type) {
-	case Nfile:
 	case Nuse:	die("Node %s not allowed here\n", nodestr[n->type]);	break;
 	case Nexpr:
 		fixup(n->expr.idx);
@@ -351,7 +350,6 @@ specializenode(Node *n, Tysubst *tsmap)
 		return NULL;
 	r = mknode(n->loc, n->type);
 	switch (n->type) {
-	case Nfile:
 	case Nuse:
 		die("Node %s not allowed here\n", nodestr[n->type]);
 		break;
@@ -430,6 +428,7 @@ specializenode(Node *n, Tysubst *tsmap)
 	case Ndecl:
 		r->decl.did = ndecls;
 		/* sym */
+		r->decl.env = n->decl.env;
 		r->decl.name = specializenode(n->decl.name, tsmap);
 		r->decl.type = tysubst(n->decl.type, tsmap);
 
@@ -442,19 +441,24 @@ specializenode(Node *n, Tysubst *tsmap)
 			putdcl(curstab(), r);
 
 		/* init */
+		pushenv(r->decl.env);
 		r->decl.init = specializenode(n->decl.init, tsmap);
+		popenv(r->decl.env);
 		lappend(&decls, &ndecls, r);
 		break;
 	case Nfunc:
 		r->func.scope = mkstab(1);
 		r->func.scope->super = curstab();
+		r->func.env = n->func.env;
 		pushstab(r->func.scope);
+		pushenv(r->func.env);
 		r->func.type = tysubst(n->func.type, tsmap);
 		r->func.nargs = n->func.nargs;
 		r->func.args = xalloc(sizeof(Node *) * n->func.nargs);
 		for (i = 0; i < n->func.nargs; i++)
 			r->func.args[i] = specializenode(n->func.args[i], tsmap);
 		r->func.body = specializenode(n->func.body, tsmap);
+		popenv(r->func.env);
 		popstab();
 		break;
 	case Nimpl:
@@ -545,7 +549,7 @@ specializedcl(Node *gnode, Type *param, Type *to, Node **name)
 	if (n->name.ns)
 		st = getns(n->name.ns);
 	else
-		st = file->file.globls;
+		st = file.globls;
 	if (!st)
 		fatal(n, "Can't find symbol table for %s.%s", n->name.ns, n->name.name);
 	d = getdcl(st, n);
@@ -580,7 +584,7 @@ specializedcl(Node *gnode, Type *param, Type *to, Node **name)
 
 	fixup(d);
 
-	lappend(&file->file.stmts, &file->file.nstmts, d);
+	lappend(&file.stmts, &file.nstmts, d);
 	if (d->decl.name->name.ns)
 		popstab();
 	substfree(tsmap);
@@ -600,11 +604,11 @@ specializedcl(Node *gnode, Type *param, Type *to, Node **name)
  * }
  */
 static Node *
-initdecl(Node *file, Node *name, Type *tyvoidfn)
+initdecl(Node *name, Type *tyvoidfn)
 {
 	Node *dcl;
 
-	dcl = getdcl(file->file.globls, name);
+	dcl = getdcl(file.globls, name);
 	if (!dcl) {
 		dcl = mkdecl(Zloc, name, tyvoidfn);
 		dcl->decl.isconst = 1;
@@ -612,7 +616,7 @@ initdecl(Node *file, Node *name, Type *tyvoidfn)
 		dcl->decl.isinit = 1;
 		dcl->decl.isextern = 1;
 		dcl->decl.ishidden = 1;
-		putdcl(file->file.globls, dcl);
+		putdcl(file.globls, dcl);
 	}
 	return dcl;
 }
@@ -633,24 +637,24 @@ callinit(Node *block, Node *init, Type *tyvoid, Type *tyvoidfn)
 }
 
 void
-geninit(void)
+genautocall(Node **call, size_t ncall, Node *local, char *fn)
 {
 	Node *name, *decl, *func, *block, *init;
 	Type *tyvoid, *tyvoidfn;
 	size_t i;
 
-	name = mkname(Zloc, "__init__");
+	name = mkname(Zloc, fn);
 	decl = mkdecl(Zloc, name, mktyvar(Zloc));
 	block = mkblock(Zloc, mkstab(0));
 	tyvoid = mktype(Zloc, Tyvoid);
 	tyvoidfn = mktyfunc(Zloc, NULL, 0, tyvoid);
 
-	for (i = 0; i < file->file.ninit; i++) {
-		init = initdecl(file, file->file.init[i], tyvoidfn);
+	for (i = 0; i < ncall; i++) {
+		init = initdecl(call[i], tyvoidfn);
 		callinit(block, init, tyvoid, tyvoidfn);
 	}
-	if (file->file.localinit)
-		callinit(block, file->file.localinit, tyvoid, tyvoidfn);
+	if (local)
+		callinit(block, local, tyvoid, tyvoidfn);
 
 	func = mkfunc(Zloc, NULL, 0, mktype(Zloc, Tyvoid), block);
 	init = mkexpr(Zloc, Olit, func, NULL);
@@ -662,8 +666,8 @@ geninit(void)
 	decl->decl.type = tyvoidfn;
 	decl->decl.vis = Vishidden;
 
-	func->lit.fnval->func.scope->super = file->file.globls;
+	func->lit.fnval->func.scope->super = file.globls;
 	block->block.scope->super = func->lit.fnval->func.scope->super;
 
-	lappend(&file->file.stmts, &file->file.nstmts, decl);
+	lappend(&file.stmts, &file.nstmts, decl);
 }

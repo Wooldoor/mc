@@ -339,7 +339,7 @@ gettrait(Stab *st, Node *n)
 
 Stab *
 getns(char *name) {
-	return htget(file->file.ns, name);
+	return htget(file.ns, name);
 }
 
 static int
@@ -404,7 +404,7 @@ mergedecl(Node *old, Node *new)
 	old->decl.ishidden = e->decl.ishidden || g->decl.ishidden;
 	old->decl.isimport = e->decl.isimport || g->decl.isimport;
 	old->decl.isnoret = e->decl.isnoret || g->decl.isnoret;
-	old->decl.isexportinit = e->decl.isexportinit || g->decl.isexportinit;
+	old->decl.isexportval = e->decl.isexportval || g->decl.isexportval;
 	old->decl.isglobl = e->decl.isglobl || g->decl.isglobl;
 	old->decl.ispkglocal = e->decl.ispkglocal || g->decl.ispkglocal;
 	old->decl.isextern = e->decl.isextern || g->decl.isextern;
@@ -588,7 +588,7 @@ putimpl(Stab *st, Node *n)
 			fname(n->loc), lnum(n->loc));
 	/* if this is not a duplicate, record it for later export */
 	if (!impl)
-		lappend(&file->file.impl, &file->file.nimpl, n);
+		lappend(&file.impl, &file.nimpl, n);
 	/*
 	 The impl is not defined in this file, so setting the
 	 trait name would be a bug here.
@@ -618,7 +618,7 @@ putns(Stab *scope)
 	s = getns(scope->name);
 	if (s)
 		lfatal(Zloc, "Namespace %s already defined", scope->name);
-	htput(file->file.ns, scope->name, scope);
+	htput(file.ns, scope->name, scope);
 }
 
 /*
@@ -636,7 +636,7 @@ updatens(Stab *st, char *name)
 	if (st->name)
 		die("stab %s already has namespace; Can't set to %s", st->name, name);
 	st->name = strdup(name);
-	htput(file->file.ns, st->name, st);
+	htput(file.ns, st->name, st);
 
 	k = htkeys(st->dcl, &nk);
 	for (i = 0; i < nk; i++)
@@ -734,6 +734,8 @@ boundtype(Type *t)
 	Tyenv *e;
 	Type *r;
 
+	if (t->type != Typaram)
+		return NULL;
 	for (e = curenv(); e; e = e->super) {
 		r = htget(e->tab, t);
 		if (r)

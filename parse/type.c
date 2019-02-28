@@ -419,6 +419,7 @@ hasparamsrec(Type *t, Bitset *visited)
 {
 	size_t i;
 
+	t = tysearch(t);
 	if (bshas(visited, t->tid))
 		return 0;
 	bsput(visited, t->tid);
@@ -426,30 +427,30 @@ hasparamsrec(Type *t, Bitset *visited)
 	case Typaram:	return 1;
 	case Tygeneric: return 1;
 	case Tyname:
-			for (i = 0; i < t->narg; i++)
-				if (hasparamsrec(t->arg[i], visited))
-					return 1;
-			return hasparamsrec(t->sub[0], visited);
+		for (i = 0; i < t->narg; i++)
+			if (hasparamsrec(t->arg[i], visited))
+				return 1;
+		return hasparamsrec(t->sub[0], visited);
 	case Tyunres:
-			for (i = 0; i < t->narg; i++)
-				if (hasparamsrec(t->arg[i], visited))
-					return 1;
-			break;
+		for (i = 0; i < t->narg; i++)
+			if (hasparamsrec(t->arg[i], visited))
+				return 1;
+		break;
 	case Tystruct:
-			for (i = 0; i < t->nmemb; i++)
-				if (hasparamsrec(t->sdecls[i]->decl.type, visited))
-					return 1;
-			break;
+		for (i = 0; i < t->nmemb; i++)
+			if (hasparamsrec(t->sdecls[i]->decl.type, visited))
+				return 1;
+		break;
 	case Tyunion:
-			for (i = 0; i < t->nmemb; i++)
-				if (t->udecls[i]->etype && hasparamsrec(t->udecls[i]->etype, visited))
-					return 1;
-			break;
+		for (i = 0; i < t->nmemb; i++)
+			if (t->udecls[i]->etype && hasparamsrec(t->udecls[i]->etype, visited))
+				return 1;
+		break;
 	default:
-			for (i = 0; i < t->nsub; i++)
-				if (hasparamsrec(t->sub[i], visited))
-					return 1;
-			break;
+		for (i = 0; i < t->nsub; i++)
+			if (hasparamsrec(t->sub[i], visited))
+				return 1;
+		break;
 	}
 	return 0;
 }
@@ -791,7 +792,7 @@ equate(int32_t ta, int32_t tb)
 int
 tyeq_rec(Type *a, Type *b, Bitset *avisited, Bitset *bvisited, int search)
 {
-	Type *x, *y;
+	Type *x, *y, *t;
 	Typair p;
 	size_t i;
 	int ret;
@@ -801,6 +802,10 @@ tyeq_rec(Type *a, Type *b, Bitset *avisited, Bitset *bvisited, int search)
 	if (search) {
 		a = tysearch(a);
 		b = tysearch(b);
+		if ((t = boundtype(a)) != NULL)
+			a = tysearch(t);
+		if ((t = boundtype(b)) != NULL)
+			b = tysearch(t);
 	}
 	if (a->type != b->type)
 		return 0;
@@ -828,7 +833,10 @@ tyeq_rec(Type *a, Type *b, Bitset *avisited, Bitset *bvisited, int search)
 
 	switch (a->type) {
 	case Typaram:
-		ret = streq(a->pname, b->pname);
+		ret = (a == b);
+		ret = ret || streq(a->pname, b->pname);
+		//if (ret != streq(a->pname, b->pname))
+		//	die("wat");
 		break;
 	case Tyvar:
 		if (a->tid != b->tid)

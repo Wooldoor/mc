@@ -112,7 +112,7 @@ tagtype(Stab *st, Type *t, int ingeneric, int hidelocal)
 }
 
 int
-isexportinit(Node *n)
+isexportval(Node *n)
 {
 	if (n->decl.isgeneric && !n->decl.trait)
 		return 1;
@@ -185,8 +185,8 @@ tagnode(Stab *st, Node *n, int ingeneric, int hidelocal)
 		tagtype(st, n->decl.type, ingeneric, hidelocal);
 		if (hidelocal && n->decl.ispkglocal)
 			n->decl.vis = Vishidden;
-		n->decl.isexportinit = isexportinit(n);
-		if (n->decl.isexportinit || ingeneric)
+		n->decl.isexportval = isexportval(n);
+		if (n->decl.isexportval || ingeneric)
 			tagnode(st, n->decl.init, n->decl.isgeneric, hidelocal);
 		break;
 	case Nfunc:
@@ -207,7 +207,6 @@ tagnode(Stab *st, Node *n, int ingeneric, int hidelocal)
 	case Nuse:
 	case Nname:
 		break;
-	case Nfile:
 	case Nnone:
 		die("Invalid node for type export\n");
 		break;
@@ -224,13 +223,17 @@ tagexports(int hidelocal)
 	Node *s;
 	Type *t;
 
-	st = file->file.globls;
+	st = file.globls;
 
 	/* tag the initializers */
-	for (i = 0; i < file->file.ninit; i++)
-		tagnode(st, file->file.init[i], 0, hidelocal);
-	if (file->file.localinit)
-		tagnode(st, file->file.localinit, 0, hidelocal);
+	for (i = 0; i < file.ninit; i++)
+		tagnode(st, file.init[i], 0, hidelocal);
+	for (i = 0; i < file.nfini; i++)
+		tagnode(st, file.fini[i], 0, hidelocal);
+	if (file.localinit)
+		tagnode(st, file.localinit, 0, hidelocal);
+	if (file.localfini)
+		tagnode(st, file.localfini, 0, hidelocal);
 
 	/* tag the exported nodes */
 	k = htkeys(st->dcl, &n);
