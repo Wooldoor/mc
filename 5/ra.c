@@ -46,78 +46,130 @@ Usemap deftab[] = {
 };
 
 /* A map of which registers interfere */
-#define Northogonal 32
+/* TODO: Should this be Rnone for all modes but ModeW, or the register itself
+ * for all modes but ModeQ? */
+/* TODO: Should entry 14 and 15 be all Rnone? */
+#define Northogonal 48
 Reg regmap[Northogonal][Nmode] = {
 	/* None,   ModeB, ModeW, ModeL, ModeQ, ModeF, ModeD */
-	[0]	= {Rnone, Ral,   Rax,   Reax,  Rrax,  Rnone,  Rnone},
-	[1]	= {Rnone, Rcl,   Rcx,   Recx,  Rrcx,  Rnone,  Rnone},
-	[2]	= {Rnone, Rdl,   Rdx,   Redx,  Rrdx,  Rnone,  Rnone},
-	[3]	= {Rnone, Rbl,   Rbx,   Rebx,  Rrbx,  Rnone,  Rnone},
-	[4]	= {Rnone, Rsil,  Rsi,   Resi,  Rrsi,  Rnone,  Rnone},
-	[5]	= {Rnone, Rdil,  Rdi,   Redi,  Rrdi,  Rnone,  Rnone},
-	[6]	= {Rnone, Rr8b,  Rr8w,  Rr8d,  Rr8,   Rnone,  Rnone},
-	[7]	= {Rnone, Rr9b,  Rr9w,  Rr9d,  Rr9,   Rnone,  Rnone},
-	[8]	= {Rnone, Rr10b, Rr10w, Rr10d, Rr10,  Rnone,  Rnone},
-	[9]	= {Rnone, Rr11b, Rr11w, Rr11d, Rr11,  Rnone,  Rnone},
-	[10]	= {Rnone, Rr12b, Rr12w, Rr12d, Rr12,  Rnone,  Rnone},
-	[11]	= {Rnone, Rr13b, Rr13w, Rr13d, Rr13,  Rnone,  Rnone},
-	[12]	= {Rnone, Rr14b, Rr14w, Rr14d, Rr14,  Rnone,  Rnone},
-	[13]	= {Rnone, Rr15b, Rr15w, Rr15d, Rr15,  Rnone,  Rnone},
-	[14]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rnone,  Rnone},
-	[15]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rnone,  Rnone},
-	[16]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm0f, Rxmm0d},
-	[17]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm1f, Rxmm1d},
-	[18]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm2f, Rxmm2d},
-	[19]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm3f, Rxmm3d},
-	[20]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm4f, Rxmm4d},
-	[21]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm5f, Rxmm5d},
-	[22]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm6f, Rxmm6d},
-	[23]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm7f, Rxmm7d},
-	[24]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm8f, Rxmm8d},
-	[25]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm9f, Rxmm9d},
-	[26]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm10f, Rxmm10d},
-	[27]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm11f, Rxmm11d},
-	[28]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm12f, Rxmm12d},
-	[29]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm13f, Rxmm13d},
-	[30]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm14f, Rxmm14d},
-	[31]	= {Rnone, Rnone, Rnone, Rnone, Rnone, Rxmm15f, Rxmm15d},
+	[0] = {Rnone, Rnone, Rnone, Rr0, Rnone, Rnone, Rnone},
+	[1] = {Rnone, Rnone, Rnone, Rr1, Rnone, Rnone, Rnone},
+	[2] = {Rnone, Rnone, Rnone, Rr2, Rnone, Rnone, Rnone},
+	[3] = {Rnone, Rnone, Rnone, Rr3, Rnone, Rnone, Rnone},
+	[4] = {Rnone, Rnone, Rnone, Rr4, Rnone, Rnone, Rnone},
+	[5] = {Rnone, Rnone, Rnone, Rr5, Rnone, Rnone, Rnone},
+	[6] = {Rnone, Rnone, Rnone, Rr6, Rnone, Rnone, Rnone},
+	[7] = {Rnone, Rnone, Rnone, Rr7, Rnone, Rnone, Rnone},
+	[8] = {Rnone, Rnone, Rnone, Rr8, Rnone, Rnone, Rnone},
+	[9] = {Rnone, Rnone, Rnone, Rr9, Rnone, Rnone, Rnone},
+	[10] = {Rnone, Rnone, Rnone, Rr10, Rnone, Rnone, Rnone},
+	[11] = {Rnone, Rnone, Rnone, Rr11, Rnone, Rnone, Rnone},
+	[12] = {Rnone, Rnone, Rnone, Rr12, Rnone, Rnone, Rnone},
+	[13] = {Rnone, Rnone, Rnone, Rr13, Rnone, Rnone, Rnone},
+	[14] = {Rnone, Rnone, Rnone, Rr14, Rnone, Rnone, Rnone},
+	[15] = {Rnone, Rnone, Rnone, Rr15, Rnone, Rnone, Rnone},
+
+	[16] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs0, Rd0},
+	[17] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs1, Rd0},
+	[18] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs2, Rd1},
+	[19] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs3, Rd1},
+	[20] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs4, Rd2},
+	[21] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs5, Rd2},
+	[22] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs6, Rd3},
+	[23] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs7, Rd3},
+	[24] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs8, Rd4},
+	[25] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs9, Rd4},
+	[26] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs10, Rd5},
+	[27] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs11, Rd5},
+	[28] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs12, Rd6},
+	[29] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs13, Rd6},
+	[30] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs14, Rd7},
+	[31] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs15, Rd7},
+	[32] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs16, Rd8},
+	[33] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs17, Rd8},
+	[34] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs18, Rd9},
+	[35] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs19, Rd9},
+	[36] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs20, Rd10},
+	[37] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs21, Rd10},
+	[38] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs22, Rd11},
+	[39] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs23, Rd11},
+	[40] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs24, Rd12},
+	[41] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs25, Rd12},
+	[42] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs26, Rd13},
+	[43] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs27, Rd13},
+	[44] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs28, Rd14},
+	[45] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs29, Rd14},
+	[46] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs30, Rd15},
+	[47] = {Rnone, Rnone, Rnone, Rnone, Rnone, Rs31, Rd15},
 };
 
 /* Which regmap entry a register maps to */
 int colourmap[Nreg] = {
-	/* byte */
-	[Ral]	= 0,  [Rax]	= 0,  [Reax]	= 0,  [Rrax]	= 0,
-	[Rcl]	= 1,  [Rcx]	= 1,  [Recx]	= 1,  [Rrcx]	= 1,
-	[Rdl]	= 2,  [Rdx]	= 2,  [Redx]	= 2,  [Rrdx]	= 2,
-	[Rbl]	= 3,  [Rbx]	= 3,  [Rebx]	= 3,  [Rrbx]	= 3,
-	[Rsil]	= 4,  [Rsi]	= 4,  [Resi]	= 4,  [Rrsi]	= 4,
-	[Rdil]	= 5,  [Rdi]	= 5,  [Redi]	= 5,  [Rrdi]	= 5,
-	[Rr8b]	= 6,  [Rr8w]	= 6,  [Rr8d]	= 6,  [Rr8]	= 6,
-	[Rr9b]	= 7,  [Rr9w]	= 7,  [Rr9d]	= 7,  [Rr9]	= 7,
-	[Rr10b]	= 8,  [Rr10w]	= 8,  [Rr10d]	= 8,  [Rr10]	= 8,
-	[Rr11b]	= 9,  [Rr11w]	= 9,  [Rr11d]	= 9,  [Rr11]	= 9,
-	[Rr12b]	= 10, [Rr12w]	= 10, [Rr12d]	= 10, [Rr12]	= 10,
-	[Rr13b]	= 11, [Rr13w]	= 11, [Rr13d]	= 11, [Rr13]	= 11,
-	[Rr14b]	= 12, [Rr14w]	= 12, [Rr14d]	= 12, [Rr14]	= 12,
-	[Rr15b]	= 13, [Rr15w]	= 13, [Rr15d]	= 13, [Rr15]	= 13,
+	[Rr0] = 0,
+	[Rr1] = 1,
+	[Rr2] = 2,
+	[Rr3] = 3,
+	[Rr4] = 4,
+	[Rr5] = 5,
+	[Rr6] = 6,
+	[Rr7] = 7,
+	[Rr8] = 8,
+	[Rr9] = 9,
+	[Rr10] = 10,
+	[Rr11] = 11,
+	[Rr12] = 12,
+	[Rr13] = 13,
+	[Rr14] = 14,
+	[Rr15] = 15,
 
-	/* float */
-	[Rxmm0f]	= 16,  [Rxmm0d]	= 16,
-	[Rxmm1f]	= 17,  [Rxmm1d]	= 17,
-	[Rxmm2f]	= 18,  [Rxmm2d]	= 18,
-	[Rxmm3f]	= 19,  [Rxmm3d]	= 19,
-	[Rxmm4f]	= 20,  [Rxmm4d]	= 20,
-	[Rxmm5f]	= 21,  [Rxmm5d]	= 21,
-	[Rxmm6f]	= 22,  [Rxmm6d]	= 22,
-	[Rxmm7f]	= 23,  [Rxmm7d]	= 23,
-	[Rxmm8f]	= 24,  [Rxmm8d]	= 24,
-	[Rxmm9f]	= 25,  [Rxmm9d]	= 25,
-	[Rxmm10f]	= 26,  [Rxmm10d]	= 26,
-	[Rxmm11f]	= 27,  [Rxmm11d]	= 27,
-	[Rxmm12f]	= 28,  [Rxmm12d]	= 28,
-	[Rxmm13f]	= 29,  [Rxmm13d]	= 29,
-	[Rxmm14f]	= 30,  [Rxmm14d]	= 30,
-	[Rxmm15f]	= 31,  [Rxmm15d]	= 31,
+	[Rs0] = 16,
+	[Rs1] = 17,
+	[Rs2] = 18,
+	[Rs3] = 19,
+	[Rs4] = 20,
+	[Rs5] = 21,
+	[Rs6] = 22,
+	[Rs7] = 23,
+	[Rs8] = 24,
+	[Rs9] = 25,
+	[Rs10] = 26,
+	[Rs11] = 27,
+	[Rs12] = 28,
+	[Rs13] = 29,
+	[Rs14] = 30,
+	[Rs15] = 31,
+	[Rs16] = 32,
+	[Rs17] = 33,
+	[Rs18] = 34,
+	[Rs19] = 35,
+	[Rs20] = 36,
+	[Rs21] = 37,
+	[Rs22] = 38,
+	[Rs23] = 39,
+	[Rs24] = 40,
+	[Rs25] = 41,
+	[Rs26] = 42,
+	[Rs27] = 43,
+	[Rs28] = 44,
+	[Rs29] = 45,
+	[Rs30] = 46,
+	[Rs31] = 47,
+	[Rd0] = 16,
+	[Rd1] = 18,
+	[Rd2] = 20,
+	[Rd3] = 22,
+	[Rd4] = 24,
+	[Rd5] = 26,
+	[Rd6] = 28,
+	[Rd7] = 30,
+	[Rd8] = 32,
+	[Rd9] = 34,
+	[Rd10] = 36,
+	[Rd11] = 38,
+	[Rd12] = 40,
+	[Rd13] = 42,
+	[Rd14] = 44,
+	[Rd15] = 46,
 };
 
 size_t modesize[Nmode] = {
@@ -153,13 +205,15 @@ rclass(Loc *l)
 	return Classbad;
 }
 
-/* %esp, %ebp are not in the allocatable pool */
+/* Should r13, 14, 15 remain unallocated? */
 static int
 isfixreg(Loc *l)
 {
-	if (l->reg.colour == Resp)
+	if (l->reg.colour == Rr13)
 		return 1;
-	if (l->reg.colour == Rebp)
+	if (l->reg.colour == Rr14)
+		return 1;
+	if (l->reg.colour == Rr15)
 		return 1;
 	return 0;
 }
@@ -308,10 +362,11 @@ liveness(Isel *s)
 }
 
 /* we're only interested in register->register moves */
+/* TODO: Other instructions that can do register->register? */
 static int
 ismove(Insn *i)
 {
-	if (i->op != Imov && i->op != Imovs)
+	if (i->op != Icpy)
 		return 0;
 	return i->args[0]->type == Locreg && i->args[1]->type == Locreg;
 }
@@ -414,14 +469,15 @@ wlputset(Bitset *bs, regid r)
 }
 
 
+/* TODO: Should ignore other registers or just r13-15? */
 static void
 addedge(Isel *s, regid u, regid v)
 {
 	if (u == v || gbhasedge(s, u, v))
 		return;
-	if (u == Rrbp || u == Rrsp || u == Rrip)
+	if (u == Rr13 || u == Rr14 || u == Rr15)
 		return;
-	if (v == Rrbp || v == Rrsp || v == Rrip)
+	if (v == Rr13 || v == Rr14 || v == Rr15)
 		return;
 	if (rclass(locmap[u]) != rclass(locmap[v]))
 		return;
@@ -1119,13 +1175,14 @@ mapfind(Isel *s, Htab *map, Loc *old)
 	return old;
 }
 
+/* TODO: Verify r13 is correct one here (base pointer) */
 static Loc *
 spillslot(Isel *s, regid reg)
 {
 	size_t stkoff;
 
 	stkoff = ptoi(htget(s->spillslots, itop(reg)));
-	return locmem(-stkoff, locphysreg(Rrbp), NULL, locmap[reg]->mode);
+	return locmem(-stkoff, locphysreg(Rr13), NULL, locmap[reg]->mode);
 }
 
 static void
@@ -1178,10 +1235,11 @@ remap(Isel *s, Htab *map, Insn *insn, regid *use, size_t nuse, regid *def, size_
 	return remapped;
 }
 
+/* TODO: Should check for other insns than cpy? */
 static int
 nopmov(Isel *s, Insn *insn)
 {
-	if (insn->op != Imov)
+	if (insn->op != Icpy)
 		return 0;
 	if (insn->args[0]->type != Locreg || insn->args[1]->type != Locreg)
 		return 0;
@@ -1263,10 +1321,11 @@ rewritebb(Isel *s, Asmbb *bb, Loc **aliasmap)
 				tmp = htget(map, locmap[def[i]]);
 				if (!tmp)
 					continue;
+				/* TODO: Replace ldr with proper instructions */
 				if (isfloatmode(tmp->mode))
-					mov = mkinsn(Imovs, tmp, spillslot(s, def[i]), NULL);
+					mov = mkinsn(Ildr, tmp, spillslot(s, def[i]), NULL);
 				else
-					mov = mkinsn(Imov, tmp, spillslot(s, def[i]), NULL);
+					mov = mkinsn(Ildr, tmp, spillslot(s, def[i]), NULL);
 				lappend(&new, &nnew, mov);
 			}
 			updatelocs(s, map, insn);
@@ -1275,10 +1334,11 @@ rewritebb(Isel *s, Asmbb *bb, Loc **aliasmap)
 				tmp = htget(map, locmap[use[i]]);
 				if (!tmp)
 					continue;
+				/* TODO: Replace ldr with proper instructions */
 				if (isfloatmode(tmp->mode))
-					mov = mkinsn(Imovs, spillslot(s, use[i]), tmp, NULL);
+					mov = mkinsn(Ildr, spillslot(s, use[i]), tmp, NULL);
 				else
-					mov = mkinsn(Imov, spillslot(s, use[i]), tmp, NULL);
+					mov = mkinsn(Ildr, spillslot(s, use[i]), tmp, NULL);
 				lappend(&new, &nnew, mov);
 			}
 			for (i = 0; i < nuse; i++)

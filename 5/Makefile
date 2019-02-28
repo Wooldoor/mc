@@ -1,4 +1,4 @@
-INSTBIN=6m
+INSTBIN=5m
 OBJ= \
 	blob.o \
 	gen.o \

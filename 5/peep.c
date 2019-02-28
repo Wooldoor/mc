@@ -28,7 +28,7 @@ deadcode(Isel *s, Asmbb *bb)
 	if (!bb)
 		return;
 	for (i = 0; i < bb->ni; i++) {
-		if (bb->il[i]->op == Ijmp) {
+		if (bb->il[i]->op == Ib) {
 			i++;
 			break;
 		}
@@ -56,7 +56,7 @@ nopjmp(Isel *s, Asmbb *bb, size_t idx)
 	/* find the target of the last unconditional
 	 * jump in the bb */
 	targ = NULL;
-	if (bb->il[bb->ni - 1]->op == Ijmp) {
+	if (bb->il[bb->ni - 1]->op == Ib) {
 		jmp = bb->il[bb->ni - 1];
 		if (jmp->args[0]->type == Loclbl)
 			targ = jmp->args[0];
