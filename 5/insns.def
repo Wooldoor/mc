@@ -61,6 +61,13 @@ Insn(Icomment,
     Use(None),
     Def(None))
 
+/* Insert dummy instruction for LEA while I figure it out */
+Insn(Ilea,
+    "\tlea %r,%x INVALID\n",
+    "",
+    Use(.l={1}),
+    Def(.l={2}))
+
 /* Moving memory around */
 Insn(Ildr,
     "\tldr %r,%x\n",

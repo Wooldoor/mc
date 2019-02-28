@@ -87,6 +87,7 @@ tymode(Type *t)
 		if (isstacktype(t))
 			return ModeQ;
 		switch (tysize(t)) {
+		/* TODO: Should replace first 2 cases with ModeL due to 32-bit word access? */
 		case 1:	return ModeB;	break;
 		case 2:	return ModeW;	break;
 		case 4:	return ModeL;	break;
@@ -451,8 +452,8 @@ blit(Isel *s, Loc *to, Loc *from, size_t dstoff, size_t srcoff, size_t sz, size_
 		while (i + modesz <= sz) {
 			src = locmem(i + srcoff, sp, NULL, szmodes[modesz]);
 			dst = locmem(i + dstoff, dp, NULL, szmodes[modesz]);
-			g(s, Imov, src, tmp, NULL);
-			g(s, Imov, tmp, dst, NULL);
+			g(s, Ildr, src, tmp, NULL);
+			g(s, Ildr, tmp, dst, NULL);
 			i += modesz;
 		}
 	}
@@ -474,7 +475,7 @@ clear(Isel *s, Loc *val, size_t sz, size_t align)
 		g(s, Ieor, zero, zero, NULL);
 		while (i + modesz <= sz) {
 			dst = locmem(i, dp, NULL, szmodes[modesz]);
-			g(s, Imov, zero, dst, NULL);
+			g(s, Ildr, zero, dst, NULL);
 			i += modesz;
 		}
 	}
@@ -588,12 +589,12 @@ gencall(Isel *s, Node *n)
 		} else if (!vararg && isfloatmode(arg->mode) && nfloats < Nfloatregargs) {
 			dst = coreg(floatargregs[nfloats], arg->mode);
 			arg = inri(s, arg);
-			g(s, Imovs, arg, dst, NULL);
+			g(s, Ildr, arg, dst, NULL);
 			nfloats++;
 		} else if (!vararg && isintmode(arg->mode) && nints < Nintregargs) {
 			dst = coreg(intargregs[nints], arg->mode);
 			arg = inri(s, arg);
-			g(s, Imov, arg, dst, NULL);
+			g(s, Ildr, arg, dst, NULL);
 			nints++;
 		} else {
 			dst = locmem(argoff, sp, NULL, arg->mode);
@@ -607,9 +608,9 @@ gencall(Isel *s, Node *n)
 		g(s, Iadd, stkbump, sp, NULL);
 	if (retloc) {
 		if (isfloatmode(retloc->mode))
-			g(s, Imovs, retloc, ret, NULL);
+			g(s, Ildr, retloc, ret, NULL);
 		else
-			g(s, Imov, retloc, ret, NULL);
+			g(s, Ildr, retloc, ret, NULL);
 	}
 	return ret;
 }
@@ -673,8 +674,9 @@ selexpr(Isel *s, Node *n)
 	Op op;
 
 	args = n->expr.args;
-	edx = locphysreg(Redx);
-	cl = locphysreg(Rcl);
+	/* TODO: Replace this hack */
+	edx = locphysreg(Rr4);
+	cl = locphysreg(Rr3);
 	r = NULL;
 	switch (exprop(n)) {
 	case Oadd:	r = binop(s, Iadd, args[0], args[1]);	break;
@@ -686,6 +688,7 @@ selexpr(Isel *s, Node *n)
 		if (!r)
 			r = binop(s, Ior,  args[0], args[1]);
 		break;
+		/* TODO: Rewrite multiplication code
 	case Omul:
 		if (size(args[0]) == 1) {
 			a = selexpr(s, args[0]);
@@ -700,9 +703,11 @@ selexpr(Isel *s, Node *n)
 			r = binop(s, Iimul, args[0], args[1]);
 		}
 		break;
+		*/
+		/* TODO: Rewrite division code
 	case Odiv:
 	case Omod:
-		/* these get clobbered by the div insn */
+		* these get clobbered by the div insn *
 		a = selexpr(s, args[0]);
 		b = selexpr(s, args[1]);
 		b = newr(s, b);
@@ -733,6 +738,7 @@ selexpr(Isel *s, Node *n)
 			d = locphysreg(Rah);
 		g(s, Imov, d, r, NULL);
 		break;
+		*/
 	case Oneg:
 		r = selexpr(s, args[0]);
 		r = newr(s, r);
@@ -740,6 +746,8 @@ selexpr(Isel *s, Node *n)
 		break;
 
 		/* fp expressions */
+		/* TODO: Ensure floating point works */
+		/*
 	case Ofadd:	r = binop(s, Iadds, args[0], args[1]);	break;
 	case Ofsub:	r = binop(s, Isubs, args[0], args[1]);	break;
 	case Ofmul:	r = binop(s, Imuls, args[0], args[1]);	break;
@@ -752,7 +760,7 @@ selexpr(Isel *s, Node *n)
 		if (mode(args[0]) == ModeF) {
 			a = locreg(ModeF);
 			b = loclit(1LL << (31), ModeF);
-			g(s, Imovs, r, a);
+			g(s, Ildr, r, a);
 		} else if (mode(args[0]) == ModeD) {
 			a = locreg(ModeQ);
 			b = loclit(1LL << 63, ModeQ);
@@ -761,6 +769,7 @@ selexpr(Isel *s, Node *n)
 		g(s, Ixor, b, a, NULL);
 		g(s, Imov, a, r, NULL);
 		break;
+	*/
 	case Obsl:
 	case Obsr:
 		a = newr(s, selexpr(s, args[0]));
@@ -768,25 +777,29 @@ selexpr(Isel *s, Node *n)
 		if (b->type == Loclit) {
 			d = b;
 		} else {
-			c = coreg(Rcl, b->mode);
-			g(s, Imov, b, c, NULL);
+			/* TODO: Figure out what this should be
+			c = coreg(Rcl, b->mode); */
+			c = coreg(Rr5, b->mode);
+			g(s, Ildr, b, c, NULL);
 			d = cl;
 		}
 		if (exprop(n) == Obsr) {
 			if (istysigned(n->expr.type))
-				g(s, Isar, d, a, NULL);
+				g(s, Iasr, d, a, NULL);
 			else
-				g(s, Ishr, d, a, NULL);
+				g(s, Ilsr, d, a, NULL);
 		} else {
-			g(s, Ishl, d, a, NULL);
+			g(s, Ilsl, d, a, NULL);
 		}
 		r = a;
 		break;
+		/* TODO: Reimplement. Can do with a XOR 0xFFFFFFFF?
 	case Obnot:
 		r = selexpr(s, args[0]);
 		r = newr(s, r);
 		g(s, Inot, r, NULL);
 		break;
+		*/
 
 	case Oderef:
 		r = memloc(s, args[0], mode(n));
@@ -809,7 +822,7 @@ selexpr(Isel *s, Node *n)
 		/* lnot only valid for integer-like values */
 		g(s, reloptab[exprop(n)].test, a, a, NULL);
 		g(s, reloptab[exprop(n)].getflag, b, NULL);
-		movz(s, b, r);
+		g(s, Ildr, b, r);
 		break;
 
 	case Oeq: case One: case Ogt: case Oge: case Olt: case Ole:
@@ -822,7 +835,7 @@ selexpr(Isel *s, Node *n)
 		r = locreg(mode(n));
 		g(s, reloptab[exprop(n)].test, b, a, NULL);
 		g(s, reloptab[exprop(n)].getflag, c, NULL);
-		movz(s, c, r);
+		g(s, Ildr, c, r);
 		return r;
 
 	case Oasn:  /* relabel */
@@ -843,21 +856,23 @@ selexpr(Isel *s, Node *n)
 			a = selexpr(s, args[0]);
 		b = inri(s, b);
 		if (isfloatmode(b->mode))
-			g(s, Imovs, b, a, NULL);
+			g(s, Ildr, b, a, NULL);
 		else
-			g(s, Imov, b, a, NULL);
+			g(s, Ildr, b, a, NULL);
 		r = b;
 		break;
 	case Ocall:
 	case Ocallind:
 		r = gencall(s, n);
 		break;
+		/* TODO: Implement returns
 	case Oret:
 		a = locstrlbl(s->cfg->end->lbls[0]);
-		g(s, Ijmp, a, NULL);
+		g(s, Ib, a, NULL);
 		break;
+		*/
 	case Ojmp:
-		g(s, Ijmp, loclbl(args[0]), NULL);
+		g(s, Ib, loclbl(args[0]), NULL);
 		break;
 	case Ocjmp:
 		selcjmp(s, n, args);
@@ -899,20 +914,26 @@ selexpr(Isel *s, Node *n)
 		a = selexpr(s, args[0]);
 		a = inr(s, a);
 		r = locreg(mode(n));
-		g(s, Imov, a, r, NULL);
+		g(s, Ildr, a, r, NULL);
 		break;
 	case Ozwiden:
 		a = selexpr(s, args[0]);
 		a = inr(s, a);
 		r = locreg(mode(n));
+		/* TODO: Replace?
 		movz(s, a, r);
+		*/
 		break;
 	case Oswiden:
 		a = selexpr(s, args[0]);
 		a = inr(s, a);
 		r = locreg(mode(n));
+		/* TODO: Replace?
 		g(s, Imovsx, a, r, NULL);
+		*/
+		g(s, Ildr, a, r, NULL);
 		break;
+		/* TODO: Rewrite
 	case Oint2flt:
 		a = selexpr(s, args[0]);
 		r = locreg(mode(n));
@@ -932,6 +953,7 @@ selexpr(Isel *s, Node *n)
 		else
 			g(s, Icvttss2sd, a, r, NULL);
 		break;
+		*/
 	case Odead:
 	case Oundef:
 	case Odef:
@@ -952,6 +974,9 @@ selexpr(Isel *s, Node *n)
 	case Numops:
 		dump(n, stdout);
 		die("Should not see %s in isel", opstr[exprop(n)]);
+		break;
+	default:  /* error on not done ops*/
+		die("Unimplemented op %s", opstr[exprop(n)]);
 		break;
 	}
 	return r;
@@ -998,13 +1023,13 @@ addarglocs(Isel *s, Func *fn)
 		} else if (!vararg && isfloatmode(mode(arg)) && nfloats < Nfloatregargs) {
 			a = coreg(floatargregs[nfloats], mode(arg));
 			l = loc(s, arg);
-			g(s, Imovs, a, l, NULL);
+			g(s, Ildr, a, l, NULL);
 			htput(s->reglocs, arg, l);
 			nfloats++;
 		} else if (!vararg && isintmode(mode(arg)) && nints < Nintregargs) {
 			a = coreg(intargregs[nints], mode(arg));
 			l = loc(s, arg);
-			g(s, Imov, a, l, NULL);
+			g(s, Ildr, a, l, NULL);
 			htput(s->reglocs, arg, l);
 			nints++;
 		} else if (tybase(decltype(arg))->type != Tyvoid) {
@@ -1019,7 +1044,7 @@ static void
 prologue(Isel *s, Func *fn, size_t sz)
 {
 	Loc *lr;
-	Loc *stksz;
+	//Loc *stksz;
 	Loc *phys;
 	size_t i;
 
@@ -1030,9 +1055,9 @@ prologue(Isel *s, Func *fn, size_t sz)
 		phys = locphysreg(savedregs[i]);
 		s->calleesave[i] = locreg(phys->mode);
 		if (isfloatmode(phys->mode)) {
-			g(s, Imovs, phys, s->calleesave[i], NULL);
+			g(s, Ipush, phys, s->calleesave[i], NULL);
 		} else {
-			g(s, Imov, phys, s->calleesave[i], NULL);
+			g(s, Ipush, phys, s->calleesave[i], NULL);
 		}
 	}
 	/* Save LR for popping to PC in epilogue */
@@ -1055,16 +1080,16 @@ epilogue(Isel *s)
 	if (s->ret) {
 		ret = loc(s, s->ret);
 		if (istyfloat(exprtype(s->ret)))
-			g(s, Imovs, ret, coreg(Rs0, ret->mode), NULL);
+			g(s, Ipop, ret, coreg(Rs0, ret->mode), NULL);
 		else
-			g(s, Imov, ret, coreg(Rr0, ret->mode), NULL);
+			g(s, Ipop, ret, coreg(Rr0, ret->mode), NULL);
 	}
 	/* restore registers */
 	for (i = 0; savedregs[i] != Rnone; i++) {
 		if (isfloatmode(s->calleesave[i]->mode)) {
-			g(s, Imovs, s->calleesave[i], locphysreg(savedregs[i]), NULL);
+			g(s, Ipop, s->calleesave[i], locphysreg(savedregs[i]), NULL);
 		} else {
-			g(s, Imov, s->calleesave[i], locphysreg(savedregs[i]), NULL);
+			g(s, Ipop, s->calleesave[i], locphysreg(savedregs[i]), NULL);
 		}
 	}
 	/* leave function */
