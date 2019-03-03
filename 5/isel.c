@@ -668,14 +668,13 @@ Loc *
 selexpr(Isel *s, Node *n)
 {
 	Loc *a, *b, *c, *d, *r;
-	Loc *edx, *cl; /* x86 wants some hard-coded regs */
+	Loc *cl; /* x86 wants some hard-coded regs */
 	Node **args;
 	size_t al;
 	Op op;
 
 	args = n->expr.args;
 	/* TODO: Replace this hack */
-	edx = locphysreg(Rr4);
 	cl = locphysreg(Rr3);
 	r = NULL;
 	switch (exprop(n)) {
