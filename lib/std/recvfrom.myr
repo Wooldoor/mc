@@ -1,0 +1,77 @@
+use sys
+use "endian"
+use "alloc"
+use "option"
+use "result"
+use "syswrap"
+use "errno"
+use "types"
+use "listen"
+use "fmt"
+use "ipparse"
+
+pkg std =
+	const recvfrom : (sock : announce#, buf : byte[:] -> result(size, errno))
+	const recvfrom_addr : (sock : announce#, buf : byte[:] -> result((size, std.netaddr), errno))
+;;
+
+const recvfrom = {sock, buf
+	var res
+	res = sys.recvfrom((sock.lfd : sys.fd), buf, 0, (0 : sys.sockaddr#), (0 : sys.size#))
+
+	if res < 0
+		-> `Err (res : errno)
+	else
+		-> `Ok (res : std.size)
+	;;
+}
+
+/* Should free returned dialstr with slfree
+ */
+ /* How to return: address of client and data+length?
+  * Sliced into passed in slice, return that (can reuse same slice in further calls?)
+  * How to set length of slice to size??
+  * Idea is right but currently segfaults due to addr_bytes
+  */
+const recvfrom_addr = {sock, buf
+	var sa : sys.sockaddr_storage
+	var sa_len = (sizeof(sys.sockaddr_storage) : sys.size)
+	var flags : int = 0
+
+	var res
+	res = sys.recvfrom((sock.lfd : sys.fd), buf, flags, (&sa : sys.sockaddr#), &sa_len)
+	if res < 0
+		-> `Err (res : errno)
+	;;
+	
+	var ret_addr
+	if sa.fam == sys.Afinet
+		// Process as IPv4
+		var addr = (&sa : sys.sockaddr_in#)
+		var addr_bytes : byte[4]
+		for var i = 0; i < 4; i++
+			addr_bytes[i] = addr.addr[i]
+		;;
+		ret_addr = `Ipv4 addr_bytes
+	elif sa.fam == sys.Afinet6
+		// Process as IPv6
+		var addr = (&sa : sys.sockaddr_in6#)
+		var addr_bytes : byte[16]
+		for var i = 0; i < 16; i++
+			addr_bytes[i] = addr.addr[i]
+		;;
+		ret_addr = `Ipv6 addr_bytes
+	;;
+
+	-> `Ok ((res : std.size), ret_addr)
+
+}
+
+const big_to_little = {num : uint16 -> uint16
+	-> (num << 8) | (num >> 8)
+}
+
+
+/*
+const recvfrom_addr6 = {sock, buf
+*/

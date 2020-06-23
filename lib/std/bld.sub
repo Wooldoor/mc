@@ -38,6 +38,7 @@ lib std =
 	hasprefix.myr
 	hassuffix.myr
 	htab.myr
+	intfmt.myr
 	intparse.myr
 	introspect.myr
 	ipparse.myr
@@ -85,6 +86,7 @@ lib std =
 	utf.myr
 	varargs.myr
 	writeall.myr
+	recvfrom.myr
 
 	pledge.myr
 	pledge+openbsd.myr
