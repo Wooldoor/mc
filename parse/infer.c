@@ -339,14 +339,8 @@ typeerror(Type *a, Type *b, Node *ctx, char *msg)
 static void
 setsuperenv(Tyenv *e, Tyenv *super)
 {
-	Tyenv *te;
-
-	/* verify that we don't accidentally create loops */
-	if (!e)
-		return;
-	for (te = super; te; te = te->super)
-		assert(te->super != e);
-	e->super = super;
+	if (e)
+		e->super = super;
 }
 
 /* Set a scope's enclosing scope up correctly. */
@@ -560,6 +554,7 @@ tyresolve(Type *t)
 			bsput(t->trneed, tr->uid);
 			if (nameeq(t->spec[i]->trait[j], traittab[Tciter]->name))
 				t->seqaux = t->spec[i]->aux;
+			t->spec[i]->trait[j] = tr->name;
 		}
 	}
 
@@ -1333,7 +1328,7 @@ unifyparams(Node *ctx, Type *a, Type *b)
 static Type *
 initvar(Node *n, Node *s)
 {
-	Type *t, *param;
+	Type *t, *u, *param;
 	Tysubst *subst;
 
 	if (s->decl.ishidden && !allowhidden)
@@ -1348,12 +1343,13 @@ initvar(Node *n, Node *s)
 			substput(subst, s->decl.trait->param, param);
 		pushenv(s->decl.env);
 		t = tysubstmap(subst, tf(s->decl.type), s->decl.type);
-		popenv(s->decl.env);
 		if (s->decl.trait && !param) {
-			param = substget(subst, s->decl.trait->param);
+			u = tf(s->decl.trait->param);
+			param = substget(subst, u);
 			if (!param)
 				fatal(n, "ambiguous trait decl %s", ctxstr(s));
 		}
+		popenv(s->decl.env);
 		substfree(subst);
 	} else {
 		t = s->decl.type;
@@ -1535,16 +1531,19 @@ inferpat(Node **np, Node *val, Node ***bind, size_t *nbind)
 
 	n = *np;
 	n = checkns(n, np);
+	n->expr.ispat = 1;
 	args = n->expr.args;
 	for (i = 0; i < n->expr.nargs; i++)
-		if (args[i]->type == Nexpr)
+		if (args[i]->type == Nexpr) {
 			inferpat(&args[i], val, bind, nbind);
+		}
 	switch (exprop(n)) {
 	case Otup:
 	case Ostruct:
 	case Oarr:
 	case Olit:
 	case Omemb:
+	case Olor:
 		infernode(np, NULL, NULL);
 		break;
 		/* arithmetic expressions just need to be constant */
@@ -1580,11 +1579,23 @@ inferpat(Node **np, Node *val, Node ***bind, size_t *nbind)
 				fatal(n, "pattern shadows variable declared on %s:%d near %s",
 						fname(s->loc), lnum(s->loc), ctxstr(s));
 		} else {
-			t = mktyvar(n->loc);
-			s = mkdecl(n->loc, n->expr.args[0], t);
-			s->decl.init = val;
-			settype(n, t);
-			lappend(bind, nbind, s);
+			/* Scan the already collected bound variables in the pattern of this match case.
+			 * If a bound variable with the same name is found, assign the variable the existing decl.
+			 * Otherwise, create a new decl for the variable */
+			s = NULL;
+			for (i = 0; !s && i < *nbind; i++)
+				if (nameeq(args[0], (*bind)[i]->decl.name))
+					s = (*bind)[i];
+
+			if (s) {
+				t = s->decl.type;
+			} else {
+				t = mktyvar(n->loc);
+				s = mkdecl(n->loc, n->expr.args[0], t);
+				s->decl.init = val;
+				settype(n, t);
+				lappend(bind, nbind, s);
+			}
 		}
 		settype(n, t);
 		n->expr.did = s->decl.did;
@@ -1726,6 +1737,15 @@ inferexpr(Node **np, Type *ret, int *sawret)
 
 		/* operands same type, returning bool */
 	case Olor:	/* @a || @b -> bool */
+		if (n->expr.ispat) {
+			infersub(n, ret, sawret, &isconst);
+			t = type(args[0]);
+			for (i = 1; i < nargs; i++)
+				t = unify(n, t, type(args[i]));
+			n->expr.isconst = isconst;
+			settype(n, t);
+			break;
+		}
 	case Oland:	/* @a && @b -> bool */
 	case Oeq:	/* @a == @a -> bool */
 	case One:	/* @a != @a -> bool */
@@ -1787,8 +1807,9 @@ inferexpr(Node **np, Type *ret, int *sawret)
 		delayedcheck(n);
 		break;
 	case Osize:	/* sizeof(@a) -> size */
-		infersub(n, ret, sawret, &isconst);
 		settype(n, mktylike(n->loc, Tyuint));
+		inferdecl(args[0]);
+		n->expr.isconst = 1;
 		break;
 	case Ocall:	/* (@a, @b, @c, ... -> @r)(@a, @b, @c, ...) -> @r */
 		infersub(n, ret, sawret, &isconst);
@@ -2044,8 +2065,7 @@ inferstab(Stab *s)
 		if (!t)
 			fatal(k[i], "undefined type %s", namestr(k[i]));
 		t = tysearch(t);
-		if (t->env)
-			setsuperenv(t->env, curenv());
+		setsuperenv(t->env, curenv());
 		pushenv(t->env);
 		tyresolve(t);
 		popenv(t->env);
@@ -2293,6 +2313,12 @@ infercompn(Node *n, Postcheck ***post, size_t *npost)
 	/* all array-like types have a fake "len" member that we emulate */
 	if (ismemb && (t->type == Tyslice || t->type == Tyarray)) {
 		if (!strcmp(namestr(memb), "len")) {
+			constrain(n, type(n), traittab[Tcnum]);
+			constrain(n, type(n), traittab[Tcint]);
+			found = 1;
+		}
+	} else if (ismemb && t->type == Tyunion) {
+		if (!strcmp(namestr(memb), "tag")) {
 			constrain(n, type(n), traittab[Tcnum]);
 			constrain(n, type(n), traittab[Tcint]);
 			found = 1;
@@ -2649,6 +2675,7 @@ typesub(Node *n, int noerr)
 {
 	char *name;
 	size_t i;
+	Node *l;
 
 	if (!n)
 		return;
@@ -2707,10 +2734,12 @@ typesub(Node *n, int noerr)
 		if (n->expr.param)
 			n->expr.param = tyfix(n, n->expr.param, 0);
 		typesub(n->expr.idx, noerr);
-		if (exprop(n) == Ocast && exprop(n->expr.args[0]) == Olit &&
-				n->expr.args[0]->expr.args[0]->lit.littype == Lint) {
-			settype(n->expr.args[0], exprtype(n));
-			settype(n->expr.args[0]->expr.args[0], exprtype(n));
+		if (exprop(n) == Ocast && exprop(n->expr.args[0]) == Olit) {
+			l = n->expr.args[0]->expr.args[0];
+			if(l->lit.littype == Lint && istyint(exprtype(n))) {
+				settype(n->expr.args[0], exprtype(n));
+				settype(n->expr.args[0]->expr.args[0], exprtype(n));
+			}
 		}
 		if (exprop(n) == Oauto)
 			adddispspecialization(n, curstab());
@@ -2805,7 +2834,7 @@ specialize(void)
 			assert(tr->nproto == 2);
 			ty = exprtype(n->iterstmt.seq);
 			if (ty->type == Typaram)
-				continue;
+				goto enditer;
 
 			it = itertype(n->iterstmt.seq, mktype(n->loc, Tybool));
 			d = specializedcl(tr->proto[0], ty, it, &name);
@@ -2817,6 +2846,7 @@ specialize(void)
 		} else {
 			die("unknown node for specialization\n");
 		}
+enditer:
 		popstab();
 	}
 }
@@ -3032,6 +3062,7 @@ infer(void)
 	for (i = 0; i < file.nstmts; i++)
 		typesub(file.stmts[i], 0);
 	popstab();
+
 	specialize();
 	verify();
 }

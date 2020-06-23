@@ -7,6 +7,7 @@ use "fltfmt"
 use "hashfuncs"
 use "hasprefix"
 use "htab"
+use "intfmt"
 use "intparse"
 use "introspect"
 use "memops"
@@ -164,11 +165,9 @@ const sbfmt = {sb, fmt, args
 const sbfmtv = {sb, fmt, ap -> size
 	var buf : byte[256], param : (byte[:], byte[:])[8]
 	var state, startp, endp, starta, nbuf
-	var nfmt, nvarargs, nparam
+	var nparam
 	var b, i
 
-	nvarargs = ap.tc.nelt
-	nfmt = 0
 	startp = 0
 	starta = 0
 	nparam = 0
@@ -181,9 +180,6 @@ const sbfmtv = {sb, fmt, ap -> size
 		match (state, (b : char))
 		/* raw bytes */
 		| (`Copy, '{'):
-			if nfmt > nvarargs
-				die("too few values for fmt\n")
-			;;
 			if (fmt[i] : char) == '{'
 				b = fmt[i++]
 				sbputb(sb, ('{' : byte))
@@ -212,13 +208,16 @@ const sbfmtv = {sb, fmt, ap -> size
 			if startp != nbuf
 				param[nparam++] = (buf[startp:nbuf], "")
 			;;
+			startp = nbuf
 		| (`ParamOpt, '}'):
 			state = `Copy
 			if startp != nbuf
 				param[nparam++] = (buf[startp:nbuf], "")
 			;;
+			if ap.tc.nelt < 1
+				die("too few values for fmt\n")
+			;;
 			fmtval(sb, vatype(ap), ap, param[:nparam])
-			nfmt++
 		| (`ParamOpt, '\\'):
 			buf[nbuf++] = fmt[i++]
 		| (`ParamOpt, chr):
@@ -235,15 +234,17 @@ const sbfmtv = {sb, fmt, ap -> size
 			if startp != nbuf
 				param[nparam++] = (buf[startp:endp], buf[starta:nbuf])
 			;;
+			if ap.tc.nelt < 1
+				die("too few values for fmt\n")
+			;;
 			fmtval(sb, vatype(ap), ap, param[:nparam])
-			nfmt++
 		| (`ParamArg, '\\'):
 			buf[nbuf++] = fmt[i++]
 		| (`ParamArg, chr):
 			buf[nbuf++] = b
 		;;
 	;;
-	if nfmt != nvarargs
+	if ap.tc.nelt != 0
 		die("too many values for fmt\n")
 	;;
 	-> sb.len
@@ -282,43 +283,43 @@ const fallbackfmt = {sb, params, tyenc, ap : valist# -> void
 		sbputc(sb, val)
 	| `Tyint8:
 		var val : int8 = vanext(ap)
-		intfmt(sb, intparams(params), true, (val : uint64), 8)
+		intfmt(sb, intparams(ap, params), true, (val : uint64), 8)
 	| `Tyint16:
 		var val : int16 = vanext(ap)
-		intfmt(sb, intparams(params), true, (val : uint64), 16)
+		intfmt(sb, intparams(ap, params), true, (val : uint64), 16)
 	| `Tyint:
 		var val : int = vanext(ap)
-		intfmt(sb, intparams(params), true, (val : uint64), 32)
+		intfmt(sb, intparams(ap, params), true, (val : uint64), 32)
 	| `Tyint32:
 		var val : int32 = vanext(ap)
-		intfmt(sb, intparams(params), true, (val : uint64), 32)
+		intfmt(sb, intparams(ap, params), true, (val : uint64), 32)
 	| `Tyint64:
 		var val : int64 = vanext(ap)
-		intfmt(sb, intparams(params), true, (val : uint64), 64)
+		intfmt(sb, intparams(ap, params), true, (val : uint64), 64)
 	| `Tybyte:
 		var val : byte = vanext(ap)
-		intfmt(sb, intparams(params), false, (val : uint64), 8)
+		intfmt(sb, intparams(ap, params), false, (val : uint64), 8)
 	| `Tyuint8:
 		var val : uint8 = vanext(ap)
-		intfmt(sb, intparams(params), false, (val : uint64), 8)
+		intfmt(sb, intparams(ap, params), false, (val : uint64), 8)
 	| `Tyuint16:
 		var val : uint16 = vanext(ap)
-		intfmt(sb, intparams(params), false, (val : uint64), 16)
+		intfmt(sb, intparams(ap, params), false, (val : uint64), 16)
 	| `Tyuint:
 		var val : uint = vanext(ap)
-		intfmt(sb, intparams(params), false, (val : uint64), 32)
+		intfmt(sb, intparams(ap, params), false, (val : uint64), 32)
 	| `Tyuint32:
 		var val : uint32 = vanext(ap)
-		intfmt(sb, intparams(params), false, (val : uint64), 32)
+		intfmt(sb, intparams(ap, params), false, (val : uint64), 32)
 	| `Tyuint64:
 		var val : uint64 = vanext(ap)
-		intfmt(sb, intparams(params), false, (val : uint64), 64)
+		intfmt(sb, intparams(ap, params), false, (val : uint64), 64)
 	| `Tyflt32:
 		var val : flt32 = vanext(ap)
-		flt32bfmt(sb, val, MNormal, 0)
+		flt32bfmt(sb, fltparams(ap, params), val)
 	| `Tyflt64:
 		var val : flt64 = vanext(ap)
-		flt64bfmt(sb, val, MNormal, 0)
+		flt64bfmt(sb, fltparams(ap, params), val)
 	| `Tyvalist:
 		sbputs(sb, "...")
 
@@ -333,7 +334,7 @@ const fallbackfmt = {sb, params, tyenc, ap : valist# -> void
 		match typedesc(desc)
 		| `Tybyte:
 			var val : byte[:] = vanext(ap)
-			strfmt(sb, val, params)
+			strfmt(sb, val, ap, params)
 		| _:
 			subap = vaenter(ap)
 			fmtslice(sb, subap, params)
@@ -365,26 +366,26 @@ const fallbackfmt = {sb, params, tyenc, ap : valist# -> void
 	| `Tytuple tc:
 		subap = vaenter(ap)
 		sbfmt(sb, "(")
-		for var i = 0; i < subap.tc.nelt; i++
+		var extracomma = subap.tc.nelt == 1
+		while subap.tc.nelt != 0
 			fmtval(sb, vatype(&subap), &subap, [][:])
-			if subap.tc.nelt == 1
-				sbfmt(sb, ",")
-			elif i != subap.tc.nelt -1
+			if subap.tc.nelt > 0
 				sbfmt(sb, ", ")
 			;;
+		;;
+		if extracomma
+			sbfmt(sb, ",")
 		;;
 		sbfmt(sb, ")")
 		vabytes(ap)
 	| `Tystruct nc:
 		subap = vaenter(ap)
 		sbfmt(sb, "[")
-		for var i = 0; i < subap.tc.nelt; i++
+		while subap.tc.nelt != 0
 			(subname, subenc) = ncpeek(&subap.tc)
 			sbfmt(sb, ".{}=", subname)
 			fmtval(sb, vatype(&subap), &subap, [][:])
-			if subap.tc.nelt == 1
-				sbfmt(sb, ",")
-			elif i != subap.tc.nelt -1
+			if subap.tc.nelt > 0
 				sbfmt(sb, ", ")
 			;;
 		;;
@@ -448,13 +449,43 @@ const fmtslice = {sb, subap, params
 	;;
 }
 
-type intparams = struct
-	base	: size
-	padto	: size
-	padfill	: char
-;;
+const fltparams = {ap, params
+	var fp : fltparams
 
-const intparams = {params
+	fp = [
+		.mode = MNormal,
+		.cutoff = 0,
+		.scientific = false,
+		.padfill = ' ',
+		.padto = 0,
+	]
+
+	for p : params
+		match p
+		| ("e", ""):	fp.scientific = true
+		| ("w", wid):
+			if eq(wid, "?")
+				fp.padto = pullint(ap, "fmt: width = ? must be integer")
+			else
+				fp.padto = getint(wid, "fmt: width must be integer")
+			;;
+		| ("p", pad):	fp.padfill = decode(pad)
+		| ("s", sig):
+			fp.mode = MRelative
+			fp.cutoff = getint(sig, "fmt: significant figures must be integer")
+		| (opt, arg):
+			std.write(2, "fmt: ")
+			std.write(2, opt)
+			std.write(2, "arg: ")
+			std.write(2, arg)
+			std.die("\nunreachable\n")
+		;;
+	;;
+	iassert(fp.padto >= 0, "pad must be >= 0")
+	-> fp
+}
+
+const intparams = {ap, params
 	var ip : intparams
 
 	ip = [
@@ -467,7 +498,12 @@ const intparams = {params
 		match p
 		| ("b", bas):	ip.base = getint(bas, "fmt: base must be integer")
 		| ("x", ""):	ip.base = 16
-		| ("w", wid):	ip.padto = getint(wid, "fmt: width must be integer")
+		| ("w", wid):
+			if eq(wid, "?")
+				ip.padto = pullint(ap, "fmt: width = ? must be integer")
+			else
+				ip.padto = getint(wid, "fmt: width must be integer")
+			;;
 		| ("p", pad):	ip.padfill = decode(pad)
 		| (opt, arg):
 			std.write(2, "fmt: ")
@@ -481,7 +517,7 @@ const intparams = {params
 	-> ip
 }
 
-const strfmt = {sb, str, params
+const strfmt = {sb, str, ap, params
 	var w, p, i, raw, esc
 
 	p = ' '
@@ -491,7 +527,12 @@ const strfmt = {sb, str, params
 
 	for pp : params
 		match pp
-		| ("w", wid):	w = getint(wid, "fmt: width must be integer")
+		| ("w", wid):
+			if eq(wid, "?")
+				w = pullint(ap, "fmt: width = ? must be integer")
+			else
+				w = getint(wid, "fmt: width must be integer")
+			;;
 		| ("p", pad):	p = decode(pad)
 		| ("r", ""):	raw = true
 		| ("e", ""):	esc = true
@@ -543,64 +584,58 @@ const isprint = {b
 	-> b >= (' ' : byte) && b < ('~' : byte)
 }
 
-const digitchars = "0123456789abcdef"
-const intfmt = {sb, opts, signed, bits : uint64, nbits
-	var isneg
-	var sval, val
-	var b : byte[64]
-	var i, j, npad
-	var base
-
-	base = (opts.base : uint64)
-	if signed && bits >= 1 << (nbits - 1)
-		sval = -(bits : int64)
-		val = (sval : uint64)
-		isneg = true
-
-		/* if its negative after inverting, we have int64 min */
-		if sval < 0
-			std.sbputs(sb, "-9223372036854775808")
-			-> void
-		;;
-	else
-		val = (bits : uint64)
-		val &= ~0 >> nbits
-		isneg = false
-	;;
-
-	i = 0
-	if val == 0
-		b[0] = ('0' : byte)
-		i++
-	;;
-	while val != 0
-		b[i] = digitchars[val % base]
-		val /= base
-		i++
-	;;
-
-	npad = clamp(opts.padto - i, 0, opts.padto)
-	if isneg
-		npad--
-	;;
-	if opts.padfill == '0' && isneg
-		sbputb(sb, ('-' : byte))
-	;;
-	for j = 0; j < npad; j++
-		sbputc(sb, opts.padfill)
-	;;
-	if opts.padfill != '0' && isneg
-		sbputb(sb, ('-' : byte))
-	;;
-	for j = i; j != 0; j--
-		sbputb(sb, b[j - 1])
-	;;
-}
-
 /* would use std.get(), but that's a dependency loop */
 const getint = {s, msg
 	match std.intparse(s)
 	| `Some w:	-> w;
 	| `None:	die(msg)
 	;;
+}
+
+const pullint = {ap, msg
+	if ap.tc.nelt < 1
+		die("expected argument where none was provided")
+	;;
+
+	match typedesc(vatype(ap))
+	| `Tyint8:
+		var val : int8 = vanext(ap)
+		-> val < 0 ? 0 : (val : size)
+	| `Tyint16:
+		var val : int16 = vanext(ap)
+		-> val < 0 ? 0 : (val : size)
+	| `Tyint:
+		var val : int = vanext(ap)
+		-> val < 0 ? 0 : (val : size)
+	| `Tyint32:
+		var val : int32 = vanext(ap)
+		-> val < 0 ? 0 : (val : size)
+	| `Tyint64:
+		var val : int64 = vanext(ap)
+		-> val < 0 ? 0 : (val : size)
+	| `Tyuint8:
+		var val : uint8 = vanext(ap)
+		-> (val : size)
+	| `Tyuint16:
+		var val : uint16 = vanext(ap)
+		-> (val : size)
+	| `Tyuint:
+		var val : uint = vanext(ap)
+		-> (val : size)
+	| `Tyuint32:
+		var val : uint32 = vanext(ap)
+		-> (val : size)
+	| `Tyuint64:
+		var val : uint64 = vanext(ap)
+		-> (val : size)
+	| `Tyname (_, desc):
+		/* This is primarily for handling std.size */
+		var subap = vaenter(ap)
+		var ret = pullint(&subap, msg)
+		vabytes(ap) /* Pull one element out to keep ap synchronized with subap */
+		-> ret
+	| _: die(msg)
+	;;
+
+	-> 0
 }

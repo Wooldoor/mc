@@ -30,6 +30,18 @@ lnum(Srcloc l)
 	return l.line;
 }
 
+void
+initfile(File *f, char *name)
+{
+	memset(f, 0, sizeof(*f));
+	f->builtins = mkstab(0);
+	f->globls = mkstab(0);
+	f->globls->super = file.builtins;
+	f->ns = mkht(strhash, streq);
+	lappend(&f->files, &f->nfiles, name);
+	tyinit(f->builtins);
+}
+
 /*
  * Bah, this is going to need to know how to fold things.
  * FIXME: teach it.
@@ -43,7 +55,7 @@ arraysz(Node *sz)
 		return 0;
         n = fold(sz, 1);
 	if (exprop(n) != Olit)
-		fatal(sz, "too much indirection when finding intializer. (initialization loop?)");
+		fatal(sz, "too much indirection when finding initializer. (initialization loop?)");
 
 	n = n->expr.args[0];
 	if (n->lit.littype != Lint)
@@ -207,14 +219,10 @@ mkfunc(Srcloc loc, Node **args, size_t nargs, Type *ret, Node *body)
 	f->func.type = mktyfunc(loc, args, nargs, ret);
 	f->func.env = mkenv();
 
+	bindtype(f->func.env, f->func.type);
 	st = body->block.scope;
 	for (i = 0; i < nargs; i++)
 		putdcl(st, args[i]);
-
-	bindtype(f->func.env, ret);
-	for (i = 0; i < nargs; i++)
-		bindtype(f->func.env, decltype(args[i]));
-
 
 	n = mknode(loc, Nlit);
 	n->lit.littype = Lfunc;
@@ -246,9 +254,6 @@ mkimplstmt(Srcloc loc, Node *name, Type *t, Type **aux, size_t naux, Node **decl
 	n->impl.decls = decls;
 	n->impl.ndecls = ndecls;
 	lappend(&impltab, &nimpltab, n);
-	if (name->name.ns)
-		for (i = 0; i < ndecls; i++)
-			setns(decls[i]->decl.name, name->name.ns);
 	if (hasparams(t)) {
 		n->impl.env = mkenv();
 		bindtype(n->impl.env, t);
@@ -256,6 +261,12 @@ mkimplstmt(Srcloc loc, Node *name, Type *t, Type **aux, size_t naux, Node **decl
 	for (i = 0; i < naux; i++)
 		if (hasparams(aux[i]))
 			bindtype(n->impl.env, aux[i]);
+	for (i = 0; i < ndecls; i++) {
+		if (name->name.ns)
+			setns(decls[i]->decl.name, name->name.ns);
+		if (decls[i]->decl.env)
+			decls[i]->decl.env->super = n->impl.env;
+	}
 	return n;
 }
 
@@ -546,9 +557,8 @@ void
 setns(Node *n, char *ns)
 {
 	assert(!ns || !n->name.ns || !strcmp(n->name.ns, ns));
-	if (!ns)
-		return;
-	n->name.ns = strdup(ns);
+	if (ns)
+		n->name.ns = strdup(ns);
 }
 
 Op
