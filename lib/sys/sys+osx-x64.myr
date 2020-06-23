@@ -813,6 +813,7 @@ pkg sys =
 	const bind	: (sock : fd, addr : sockaddr#, len : size -> int)
 	const setsockopt	: (sock : fd, lev : sockproto, opt : sockopt, val : void#, len : size -> int)
 	const getsockopt	: (sock : fd, lev : sockproto, opt : sockopt, val : void#, len : size# -> int)
+	const recvfrom	: (sock : fd, buf : byte[:], flags : int, addr : sockaddr#, addr_len : size# -> int)
 
 	/* memory mapping */
 	const munmap	: (addr:byte#, len:size -> int64)
@@ -835,8 +836,8 @@ pkg sys =
 		-> int)
 
 	/* ulock */
-	const ulock_wait	: (op : ulockop, uaddr : uint64#, val : uint64, timeout : uint32 -> int)
-	const ulock_wake	: (op : ulockop, uaddr : uint64#, wakeval : uint64 -> int)
+	const ulock_wait	: (op : ulockop, uaddr : void#, val : uint64, timeout : uint32 -> int)
+	const ulock_wake	: (op : ulockop, uaddr : void#, wakeval : uint64 -> int)
 
 	extern const cstring : (str : byte[:] -> byte#)
 	/* filled by start code */
@@ -1005,6 +1006,7 @@ const listen	= {sock, backlog;	-> (syscall(Syslisten, a(sock), a(backlog)) : int
 const bind	= {sock, addr, len;	-> (syscall(Sysbind, a(sock), a(addr), a(len)) : int)}
 const setsockopt	= {sock, lev, opt, val, len;	-> (syscall(Syssetsockopt, a(sock), a(lev), a(opt), a(val), a(len)) : int)}
 const getsockopt	= {sock, lev, opt, val, len;	-> (syscall(Syssetsockopt, a(sock), a(lev), a(opt), a(val), a(len)) : int)}
+const recvfrom	= {sock, buf, flags, addr, addr_len;	-> (syscall(Sysrecvfrom, a(sock), (buf : byte#), a(buf.len), a(flags), a(addr), a(addr_len)) : int)}
 
 /* memory management */
 const munmap	= {addr, len;		-> syscall(Sysmunmap, a(addr), a(len))}
@@ -1102,15 +1104,15 @@ const uname	= {buf;
 const sysctl = {mib, old, oldsz, new, newsz
 	/* all args already passed through a() or ar  ptrs */
 	-> (syscall(Sys__sysctl, \
-		(mib : int#), a(mib.len), old, oldsz, new, newsz) : int)
+		(mib : int#), a(mib.len), a(old), a(oldsz), a(new), a(newsz)) : int)
 }
 
 const ulock_wait = {op, uaddr, val, timeout
-	-> (syscall(Sysulock_wait, a(op), uaddr, val, a(timeout)) : int)
+	-> (syscall(Sysulock_wait, a(op), a(uaddr), a(val), a(timeout)) : int)
 }
 
 const ulock_wake = {op, uaddr, wakeval
-	-> (syscall(Sysulock_wake, a(op), uaddr, a(wakeval)) : int)
+	-> (syscall(Sysulock_wake, a(op), a(uaddr), a(wakeval)) : int)
 }
 
 const waitstatus = {st

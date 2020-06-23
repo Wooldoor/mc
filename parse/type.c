@@ -162,6 +162,7 @@ mktrait(Srcloc loc, Node *name, Type *param,
 	int isproto)
 {
 	Trait *t;
+	size_t i;
 
 	t = zalloc(sizeof(Trait));
 	t->uid = ntraittab++;
@@ -174,8 +175,18 @@ mktrait(Srcloc loc, Node *name, Type *param,
 	t->proto = proto;
 	t->nproto = nproto;
 	t->aux = aux;
+	t->env = mkenv();
 	t->naux = naux;
 	t->isproto = isproto;
+
+	bindtype(t->env, param);
+	for (i = 0; i < naux; i++)
+		bindtype(t->env, aux[i]);
+
+	for (i = 0; i < nproto; i++)
+		if (proto[i]->decl.env)
+			proto[i]->decl.env->super = t->env;
+
 
 	traittab = xrealloc(traittab, ntraittab * sizeof(Trait *));
 	traittab[t->uid] = t;
@@ -401,6 +412,13 @@ istysigned(Type *t)
 }
 
 int
+istyint(Type *t)
+{
+	return istysigned(t) || istyunsigned(t);
+}
+
+
+int
 istyfloat(Type *t)
 {
 	t = tybase(t);
@@ -419,7 +437,6 @@ hasparamsrec(Type *t, Bitset *visited)
 {
 	size_t i;
 
-	t = tysearch(t);
 	if (bshas(visited, t->tid))
 		return 0;
 	bsput(visited, t->tid);

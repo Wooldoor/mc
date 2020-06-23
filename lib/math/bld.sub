@@ -22,6 +22,10 @@ lib math =
 	# polynomial evaluation methods
 	poly-impl.myr
 
+	# x^n and x^1/q
+	log-overkill.myr
+	pown-impl.myr
+
 	# x^y
 	powr-impl.myr
 

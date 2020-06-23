@@ -1,4 +1,4 @@
-#define Abiversion 21
+#define Abiversion 22
 
 typedef struct Srcloc Srcloc;
 typedef struct Tysubst Tysubst;
@@ -169,6 +169,7 @@ struct Type {
 	char isemitted;		/* Tyname: whether this type has been emitted */
 	char resolved;		/* Have we resolved the subtypes? Prevents infinite recursion. */
 	char fixed;		/* Have we fixed the subtypes? Prevents infinite recursion. */
+	char tagged;		/* Have we tagged the type for export? */
 
 };
 
@@ -192,6 +193,7 @@ struct Trait {
 	size_t naux;
 	Node **proto;	/* type must implement these prototypes */
 	size_t nproto;
+	Tyenv *env;
 
 	char isproto;	/* is it a prototype (for exporting purposes) */
 	char ishidden;	/* should user code be able to use this? */
@@ -235,6 +237,7 @@ struct Node {
 			Type *type;
 			Type *param;	/* for specialized traits, the primary param */
 			int isconst;
+			int ispat;
 			size_t did;	/* for Ovar, we want a mapping to the decl id */
 			size_t nargs;
 			Node *idx;	/* used when this is in an indexed initializer */
@@ -481,6 +484,7 @@ Ucon *finducon(Type *t, Node *name);
 int isstacktype(Type *t);
 int isenum(Type *t);
 int istysigned(Type *t);
+int istyint(Type *t);
 int istyunsigned(Type *t);
 int istyfloat(Type *t);
 int istyprimitive(Type *t);
@@ -497,6 +501,7 @@ int traitfmt(char *buf, size_t len, Type *t);
 char *traitstr(Type *t);
 
 /* node creation */
+void initfile(File *f, char *path);
 Node *mknode(Srcloc l, Ntype nt);
 Node *mkuse(Srcloc l, char *use, int islocal);
 Node *mksliceexpr(Srcloc l, Node *sl, Node *base, Node *off);

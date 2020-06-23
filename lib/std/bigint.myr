@@ -109,7 +109,7 @@ generic mkbigint = {v : @a :: integral,numeric @a
 	;;
 	val = (v : uint64)
 	slpush(&a.dig, (val : uint32))
-	if val > Base
+	if val >= Base
 		slpush(&a.dig, (val/Base : uint32))
 	;;
 	-> trim(a)
@@ -284,6 +284,8 @@ const bigparse = {str
 		bigadd(a, v)
 
 	;;
+	bigfree(b)
+	bigfree(v)
 	-> `Some a
 }
 
@@ -599,10 +601,12 @@ const kmul = {r, a, b
 	z1 = bigdup(&x0)
 	trim(z1)
 	bigsub(z1, &x1)
+	var z1sign = z1.sign
 	t0 = bigdup(&y1)
 	bigsub(t0, &y0)
 
 	umul(z1, t0)
+	z1.sign = z1sign * t0.sign
 	bigadd(z1, z0)
 	bigadd(z1, z2)
 
@@ -641,6 +645,7 @@ const smallmul = {a, b
 	;;
 	slfree(a.dig)
 	a.dig = w
+	trim(a)
 }
 
 const bigdiv = {a : bigint#, b : bigint# -> bigint#
@@ -700,7 +705,7 @@ const bigdivmod = {a : bigint#, b : bigint# -> (bigint#, bigint#)
 			carry = (carry << 32) + aj - (q.dig[j-1] : uint64)*b0
 		;;
 		q = trim(q)
-		-> (q, trim(mkbigint((carry : int32))))
+		-> (q, trim(mkbigint(carry)))
 	;;
 
 	u = bigdup(a)
@@ -770,7 +775,13 @@ const bigdivmod = {a : bigint#, b : bigint# -> (bigint#, bigint#)
 }
 
 const bigand = {a, b
-	for var i = 0; i < min(a.dig.len, b.dig.len); i++
+   if a.dig.len > b.dig.len
+      slzgrow(&b.dig, a.dig.len)
+   ;;
+   if b.dig.len > a.dig.len
+      slzgrow(&a.dig, b.dig.len)
+   ;;
+	for var i = 0; i < a.dig.len; i++
 		a.dig[i] &= b.dig[i]
 	;;
 	-> trim(a)
@@ -778,7 +789,7 @@ const bigand = {a, b
 
 const bigor = {a, b
 	slzgrow(&a.dig, max(a.dig.len, b.dig.len))
-	for var i = 0; i < a.dig.len; i++
+	for var i = 0; i < min(a.dig.len, b.dig.len); i++
 		a.dig[i] |= b.dig[i]
 	;;
 	-> trim(a)
@@ -943,18 +954,22 @@ generic bigshri = {a, s
 	off = (s : uint64) / 32
 	shift = (s : uint64) % 32
 
-	/* blit over the base values */
-	for var i = 0; i < a.dig.len - off; i++
-		a.dig[i] = a.dig[i + off]
-	;;
-	a.dig = a.dig[:a.dig.len - off]
-
-	/* and shift over by the remainder */
-	carry = 0
-	for var i = a.dig.len; i > 0; i--
-		t = ((a.dig[i - 1]  : uint64))
-		a.dig[i - 1] = (carry | (t >> shift): uint32)
-		carry = t << (32 - shift)
+	if off > a.dig.len
+		a.dig = a.dig[:0]
+	else
+		/* blit over the base values */
+		for var i = 0; i < a.dig.len - off; i++
+			a.dig[i] = a.dig[i + off]
+		;;
+		a.dig = a.dig[:a.dig.len - off]
+	
+		/* and shift over by the remainder */
+		carry = 0
+		for var i = a.dig.len; i > 0; i--
+			t = ((a.dig[i - 1]  : uint64))
+			a.dig[i - 1] = (carry | (t >> shift): uint32)
+			carry = t << (32 - shift)
+		;;
 	;;
 	-> trim(a)
 }
